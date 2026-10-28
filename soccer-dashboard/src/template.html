@@ -352,7 +352,6 @@ ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 
 __HEAD_EXTRA__
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const SAMPLE_AOA = __DATA__;
 </script>
@@ -834,8 +833,24 @@ function bindSelection() {
 /* ============ Theme / charts ============ */
 const T = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
 const charts = [];
-const mk = (el, cfg) => { const c = new Chart(el, cfg); charts.push(c); return c; };
-const destroyCharts = () => charts.splice(0).forEach(c => c.destroy());
+// 画面外のグラフは、見える位置に近づいたときに作る（タブ切り替え時の処理を軽くする）
+const pendingCharts = new Map();
+const chartObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
+  if (!e.isIntersecting || !pendingCharts.has(e.target)) return;
+  const cfg = pendingCharts.get(e.target);
+  pendingCharts.delete(e.target); chartObserver.unobserve(e.target);
+  createChart(e.target, cfg);
+}), { rootMargin: '300px 0px' }) : null;
+function createChart(el, cfg) { const ex = Chart.getChart(el); if (ex) ex.destroy(); const c = new Chart(el, cfg); charts.push(c); return c; }
+const mk = (el, cfg) => {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  if (!chartObserver || (r.bottom > -300 && r.top < window.innerHeight + 300)) { if (pendingCharts.delete(el)) chartObserver.unobserve(el); return createChart(el, cfg); }
+  if (!pendingCharts.has(el)) chartObserver.observe(el);
+  pendingCharts.set(el, cfg);
+  return null;
+};
+const destroyCharts = () => { pendingCharts.forEach((_, el) => chartObserver.unobserve(el)); pendingCharts.clear(); charts.splice(0).forEach(c => c.destroy()); };
 const crosshair = { id: 'crosshair', afterDatasetsDraw(chart) {
   const a = chart.tooltip && chart.tooltip.getActiveElements(); if (!a || !a.length) return;
   const x = a[0].element.x, { top, bottom } = chart.chartArea, ctx = chart.ctx;
@@ -855,7 +870,7 @@ function applyChartTheme() {
   Chart.defaults.borderColor = T('grid');
   Chart.defaults.font.family = T('font-body');
   Chart.defaults.font.size = 12;
-  Chart.defaults.animation.duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500;
+  Chart.defaults.animation = false;   // 多数のグラフが同時にアニメーションすると、スマホで画面が固まるため
   Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: T('fg'), titleColor: T('surface'), bodyColor: T('surface'),
     padding: 10, cornerRadius: 6, boxPadding: 4, usePointStyle: true, titleFont: { weight: '700' } });
 }
@@ -1290,6 +1305,7 @@ function renderImport(msg) {
       ${d && d.notes.length ? `<h3 style="margin:16px 0 8px">整理の記録・注記</h3><ul class="notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     </section>
   </div>`;
+  setTimeout(() => loadXLSX().catch(() => {}), 400);   // 取込画面を開いたら裏で先に読み込んでおく
   const drop = document.getElementById('drop'), input = document.getElementById('file');
   input.addEventListener('change', () => input.files.length && readFiles([...input.files]));
   ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
@@ -1302,9 +1318,23 @@ function renderImport(msg) {
   if (reset) reset.addEventListener('click', () => { setDataset(SAMPLE_AOA, { source: 'sample', files: ['同梱サンプル'] }); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
 }
 
+// Excel 読み込み用のライブラリ（約 860KB）は、取込や Excel 保存のときだけ読み込む
+const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let xlsxPromise = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return xlsxPromise || (xlsxPromise = new Promise((ok, ng) => {
+    const sc = document.createElement('script');
+    sc.src = XLSX_URL; sc.async = true;
+    sc.onload = () => ok(window.XLSX);
+    sc.onerror = () => { xlsxPromise = null; ng(new Error('Excel を読み込む部品を取得できませんでした。通信状態を確認して、もう一度お試しください。')); };
+    document.head.appendChild(sc);
+  }));
+}
 async function readFiles(files) {
   renderImport({ type: 'ok', text: `${files.length}ファイルを解析しています…` });
   try {
+    await loadXLSX();
     const sources = [], skipped = [];
     for (const f of files) {
       const wb = XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: 'array', cellDates: true });
@@ -1340,7 +1370,8 @@ async function readFiles(files) {
   } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
 }
 
-function downloadMece() {
+async function downloadMece() {
+  try { await loadXLSX(); } catch (e) { toast(e.message); return; }
   const ws = XLSX.utils.aoa_to_sheet(S.aoa), wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'TeamStats_MECE');
   XLSX.writeFile(wb, `${S.data.ownTeam}_TeamStats_MECE.xlsx`);
@@ -1447,9 +1478,11 @@ function mulberry32(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 |
 function shuffled(arr, rnd) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
 /* --- the analysis itself --- */
-function runAnalysis() {
-  const key = [...S.strong].sort().join('|') + '#' + S.source + S.fileName + S.data.matches.length;
-  if (S.ana && S.ana.key === key) return S.ana;
+const analysisKey = () => [...S.strong].sort().join('|') + '#' + S.source + S.fileName + S.data.matches.map(m => m.date + m.name).join(',');
+const ANA_CACHE = new Map();
+function analysisReady() { const k = analysisKey(); return (S.ana && S.ana.key === k) || ANA_CACHE.has(k); }
+// 並べ替え検定以外をすべて計算し、並べ替え検定は「作業」として返す（重い部分を作業スレッドに回すため）
+function buildAnalysis(key) {
   const rows = [];
   for (const m of S.data.matches) for (const [a, b] of [[m.own, m.opp], [m.opp, m.own]])
     rows.push({ m, isOwn: a === m.own, team: a.team, side: a,
@@ -1481,25 +1514,33 @@ function runAnalysis() {
   P.forEach((_, i) => combos.push([i]));
   P.forEach((_, i) => P.forEach((_, j) => { if (j > i) combos.push([i, j]); }));
   const rnd = mulberry32(20261028);
-  const conds = [];
+  const conds = [], tasks = [];
+  // 一個抜き交差検証の演算子は目的変数によらないため、統制変数の組ごとに 1 回だけ作り、平らな配列に詰める
+  const packs = new Map();
+  const packOps = adj => {
+    if (packs.has(adj)) return packs.get(adj);
+    const ctrl = adj ? [z] : [], list = combos.map(c => ({ c, R: looOperator([...c.map(i => P[i].v), ...ctrl]) })).filter(o => o.R);
+    const flat = new Float64Array(list.length * n * n);
+    list.forEach((o, k) => o.R.forEach((row, i) => flat.set(row, (k * n + i) * n)));
+    const v = { list, flat, R0: ctrl.length ? looOperator(ctrl) : null };
+    packs.set(adj, v);
+    return v;
+  };
   for (const [t, tl] of TARGETS) {
     if (!Y[t]) continue;
     for (const adj of hasStrength ? [false, true] : [false]) {
       const ctrl = adj ? [z] : [];
-      const ops = combos.map(c => ({ c, R: looOperator([...c.map(i => P[i].v), ...ctrl]) })).filter(o => o.R);
-      const R0 = ctrl.length ? looOperator(ctrl) : null;
-      const nullOf = y => (R0 ? looRmse(R0, y) : Math.sqrt(y.reduce((s, v, i) => { const m = (y.reduce((a, b) => a + b, 0) - v) / (n - 1); return s + (v - m) ** 2; }, 0) / n));
+      const { list: ops, R0 } = packOps(adj);
+      const meanNull = y => Math.sqrt(y.reduce((s, v, i) => { const m = (y.reduce((a, b) => a + b, 0) - v) / (n - 1); return s + (v - m) ** 2; }, 0) / n);
+      const nullOf = y => (R0 ? looRmse(R0, y) : meanNull(y));
       const y = Y[t], null0 = nullOf(y);
       if (!ops.length) continue;
       const ranked = ops.map(o => ({ c: o.c, rmse: looRmse(o.R, y) })).sort((a, b) => a.rmse - b.rmse);
-      const best = ranked[0], obs = best.rmse / null0;
-      let hit = 0;
-      for (let k = 0; k < N_PERM; k++) {
-        const yp = shuffled(y, rnd), base = nullOf(yp);
-        let m = Infinity;
-        for (const o of ops) { const v = looRmse(o.R, yp); if (v < m) m = v; }
-        if (m / base <= obs) hit++;
-      }
+      const obs = ranked[0].rmse / null0;
+      // 乱数の並べ替えはここで順番どおりに作っておく（並列に計算しても結果が変わらない）
+      const ys = new Float64Array(N_PERM * n), bases = new Float64Array(N_PERM);
+      for (let k = 0; k < N_PERM; k++) { const sh = shuffled(y, rnd); ys.set(sh, k * n); bases[k] = nullOf(sh); }
+      tasks.push({ adj, ys, bases, obs });
       const top = ranked.slice(0, 5).map(r => {
         const cols = [...r.c.map(i => P[i].v), ...ctrl], names = [...r.c.map(i => P[i].name), ...(adj ? ['チーム力'] : [])];
         const f = ols(cols, y), sy = sd(y);
@@ -1510,13 +1551,85 @@ function runAnalysis() {
         });
         return { names: r.c.map(i => P[i].name), rmse: r.rmse, gain: 1 - r.rmse / null0, r2: f.r2, adj: f.adj, vars };
       });
-      conds.push({ t, tl, adj, null0, top, pPerm: (hit + 1) / (N_PERM + 1), nModels: ops.length });
+      conds.push({ t, tl, adj, null0, top, pPerm: null, nModels: ops.length });
     }
   }
-  const sig = conds.filter(c => c.pPerm < .05);
-  const survivors = new Set(sig.flatMap(c => c.top[0].names));
-  S.ana = { key, rows, n, P, ind, jets, gx, conds, sig, survivors, hasStrength, critR, critP, nCombos: combos.length };
-  return S.ana;
+  const A = { key, rows, n, P, ind, jets, gx, conds, sig: [], survivors: new Set(), hasStrength, critR, critP, nCombos: combos.length };
+  return { A, tasks: tasks.map(t => ({ ...t, flat: packs.get(t.adj).flat, nOps: packs.get(t.adj).list.length, n })) };
+}
+// 並べ替え検定の中心部分。作業スレッドでもそのまま動くよう、外の変数を使わない
+function permKernel(flat, n, nOps, ys, bases, obs) {
+  const y = new Float64Array(n);
+  let hit = 0;
+  for (let k = 0; k < bases.length; k++) {
+    for (let j = 0; j < n; j++) y[j] = ys[k * n + j];
+    let m = Infinity;
+    for (let q = 0; q < nOps; q++) {
+      let ss = 0, base = q * n * n;
+      for (let i = 0; i < n; i++) {
+        let e = 0;
+        for (let j = 0; j < n; j++) e += flat[base + j] * y[j];
+        ss += e * e; base += n;
+        if (ss >= m) break;   // 最小値だけが必要なので、超えた時点で打ち切る
+      }
+      if (ss < m) m = ss;
+    }
+    if (Math.sqrt(m / n) / bases[k] <= obs) hit++;
+  }
+  return hit;
+}
+function finalizeAnalysis(A, hits) {
+  A.conds.forEach((c, i) => { c.pPerm = (hits[i] + 1) / (N_PERM + 1); });
+  A.sig = A.conds.filter(c => c.pPerm < .05);
+  A.survivors = new Set(A.sig.flatMap(c => c.top[0].names));
+  ANA_CACHE.set(A.key, A);
+  if (ANA_CACHE.size > 12) ANA_CACHE.delete(ANA_CACHE.keys().next().value);
+  if (A.key === analysisKey()) S.ana = A;
+  return A;
+}
+// 複数の作業スレッドで並列に計算する。使えない環境では画面側でそのまま計算する
+let permWorkerUrl = null;
+function runPermTasks(tasks) {
+  if (!tasks.length) return Promise.resolve([]);
+  if (typeof Worker === 'undefined' || typeof Blob === 'undefined') return Promise.resolve(tasks.map(t => permKernel(t.flat, t.n, t.nOps, t.ys, t.bases, t.obs)));
+  return new Promise((ok, ng) => {
+    try {
+      permWorkerUrl = permWorkerUrl || URL.createObjectURL(new Blob([permKernel.toString() + '\nonmessage = e => { const d = e.data; postMessage({ id: d.id, hit: permKernel(d.flat, d.n, d.nOps, d.ys, d.bases, d.obs) }); };'], { type: 'text/javascript' }));
+      const size = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1, tasks.length));
+      const hits = new Array(tasks.length), workers = [];
+      let next = 0, done = 0;
+      const give = w => { if (next >= tasks.length) return; const id = next++, t = tasks[id]; w.postMessage({ id, flat: t.flat, n: t.n, nOps: t.nOps, ys: t.ys, bases: t.bases, obs: t.obs }); };
+      for (let k = 0; k < size; k++) {
+        const w = new Worker(permWorkerUrl);
+        w.onmessage = e => { hits[e.data.id] = e.data.hit; done++; if (done === tasks.length) { workers.forEach(x => x.terminate()); ok(hits); } else give(w); };
+        w.onerror = err => { workers.forEach(x => x.terminate()); ng(err); };
+        workers.push(w); give(w);
+      }
+    } catch (err) { ng(err); }
+  });
+}
+// 同期版（作業スレッドを使わない）。キャッシュがあればそれを返す
+function runAnalysis() {
+  const key = analysisKey();
+  if (S.ana && S.ana.key === key) return S.ana;
+  if (ANA_CACHE.has(key)) return (S.ana = ANA_CACHE.get(key));
+  const { A, tasks } = buildAnalysis(key);
+  return finalizeAnalysis(A, tasks.map(t => permKernel(t.flat, t.n, t.nOps, t.ys, t.bases, t.obs)));
+}
+// 非同期版：重い計算を作業スレッドで行い、画面を止めない
+const ANA_PENDING = new Map();
+function ensureAnalysis() {
+  const key = analysisKey();
+  if (S.ana && S.ana.key === key) return Promise.resolve(S.ana);
+  if (ANA_CACHE.has(key)) return Promise.resolve(S.ana = ANA_CACHE.get(key));
+  if (ANA_PENDING.has(key)) return ANA_PENDING.get(key);
+  const { A, tasks } = buildAnalysis(key);
+  const pr = runPermTasks(tasks)
+    .catch(() => tasks.map(t => permKernel(t.flat, t.n, t.nOps, t.ys, t.bases, t.obs)))
+    .then(hits => finalizeAnalysis(A, hits))
+    .finally(() => ANA_PENDING.delete(key));
+  ANA_PENDING.set(key, pr);
+  return pr;
 }
 
 function verdictOf(o, A) {
@@ -1589,6 +1702,13 @@ function dumbbellSVG(A, t) {
 function renderAnalysis() {
   if (S.data.matches.length < 4) {
     app.innerHTML = `<section class="card"><div class="card-head"><h2>要因分析</h2></div><p class="muted" style="margin:0">要因分析には4試合以上が必要です（いま反映している試合：${S.data.matches.length}試合）。データ取込の「データシートに反映する試合」で試合を増やしてください。</p></section>`;
+    return;
+  }
+  if (!analysisReady()) {
+    // 初回の計算中も画面が固まって見えないよう、先に表示を切り替えてから計算する
+    app.innerHTML = '<section class="card"><div class="card-head"><h2>要因分析</h2></div><p class="muted" style="margin:0">計算しています…（相関・重回帰の全探索・並べ替え検定）</p></section>';
+    const key = analysisKey();
+    ensureAnalysis().then(() => { if (location.hash === '#analysis' && analysisKey() === key) route(); });
     return;
   }
   const d = S.data, A = runAnalysis();
@@ -1852,9 +1972,9 @@ function recordOf(d) {
     GF: ms.reduce((s, m) => s + m.gf, 0), GA: ms.reduce((s, m) => s + m.ga, 0), from: ms[0].date, to: ms.at(-1).date };
 }
 // 要因分析の要点（保存時に計算して残す）
-function analysisDigest() {
+async function analysisDigest() {
   if (S.data.matches.length < 4) return null;
-  const A = runAnalysis();
+  const A = await ensureAnalysis();
   return { n: A.n, hasStrength: A.hasStrength, strong: [...S.strong], r2: A.gx ? A.gx.r2 : null, conds: A.conds.length,
     sig: A.sig.map(c => ({ target: c.tl, adj: c.adj, model: c.top[0].names.join(' ＋ '), p: c.pPerm })),
     keep: A.hasStrength ? A.ind.filter(o => o.partial.xG != null && o.partial.xG >= A.critP).map(o => o.name) : [],
@@ -1863,7 +1983,7 @@ function analysisDigest() {
 async function saveCurrent(name, memo) {
   const d = S.data, r = recordOf(d);
   const rec = { name: name || `${d.ownTeam}（${r.from}〜${r.to}）`, memo: memo || '', ownTeam: d.ownTeam, ...r,
-    files: S.files || [], aoa: JSON.stringify(S.fullAoa), excluded: [...S.excluded], allN: S.allMatches.length, analysis: analysisDigest() };
+    files: S.files || [], aoa: JSON.stringify(S.fullAoa), excluded: [...S.excluded], allN: S.allMatches.length, analysis: await analysisDigest() };
   if (rec.aoa.length > 900000) throw new Error('データが大きすぎて保存できません（上限 約900KB）。');
   await Store.save(rec);
   return rec.name;
@@ -1969,10 +2089,11 @@ async function renderCompare() {
       ${opts.length ? `<div class="team-chips">${chips}</div>` : '<p class="muted" style="margin:0">比較できる分析がありません。「過去分析」タブで分析を保存してください。</p>'}</section>`;
   if (sel.length < 2) { app.innerHTML = head + (opts.length ? '<section class="card"><p class="muted" style="margin:0">2件以上選ぶと比較を表示します。</p></section>' : ''); bindCmpChips(); return; }
   // 各分析のデータを集計
+  const curDigest = sel.some(x => x.id === 'current') ? await analysisDigest() : null;
   const ents = sel.map((x, i) => {
     const d = x.id === 'current' ? S.data : parseSheet(filterAoa(JSON.parse(x.aoa), new Set(x.excluded || [])));
     const vals = CMP_METRICS.map(([name, fn]) => mean(d.matches.map(m => fn(m.own, m.opp))));
-    return { ...x, d, rec: recordOf(d), vals, color: `--c${i + 1}`, analysis: x.id === 'current' ? analysisDigest() : x.analysis };
+    return { ...x, d, rec: recordOf(d), vals, color: `--c${i + 1}`, analysis: x.id === 'current' ? curDigest : x.analysis };
   });
   const rows = CMP_METRICS.map(([name, , pol], k) => ({ name, pol, vals: ents.map(e => e.vals.at(k)) })).filter(r => r.vals.filter(v => v != null).length >= 2);
   // 最良の値（同値はすべて、全件同値なら判定なし）
@@ -2170,6 +2291,8 @@ function route() {
   if (page === 'match') document.querySelector('.tabs a[data-route="match"]').setAttribute('href', '#match-' + no);
   ({ overview: renderOverview, match: () => renderMatch(no), trends: renderTrends, analysis: renderAnalysis, history: () => renderHistory(), compare: renderCompare, import: () => renderImport() })[page]();
 }
+// フォントの読み込み後は、ページ全体を作り直さず、グラフの文字の寸法だけ測り直す
+function refreshCharts() { charts.forEach(c => c.update('none')); }
 function rerenderForTheme() { applyDisplay(); rerenderSafe(); }
 
 /* ============ Boot: sample mode (artifact) or cloud mode (Firebase) ============ */
@@ -2227,7 +2350,7 @@ function rerenderSafe() { if (!CLOUD || (cloudUser && S.access)) route(); }
 initDisplay();
 if (!CLOUD) {
   try { setDataset(SAMPLE_AOA, { source: 'sample', files: ['同梱サンプル'] }); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
-  if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(route); }
+  if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(refreshCharts); }
 } else {
   startUI();
   renderGate('loading');
@@ -2247,7 +2370,7 @@ function bootCloud() {
       loadCloudDisplay();
       if (snap.exists) { const v = snap.data(); setDataset(JSON.parse(v.aoa), { source: 'cloud', fileName: v.fileName, files: v.files || [v.fileName], excluded: v.excluded || [] }); updateBrand(); }
       route();
-      if (document.fonts) document.fonts.ready.then(rerenderSafe);
+      if (document.fonts) document.fonts.ready.then(refreshCharts);
     } catch (e) {
       renderGate(e.code === 'permission-denied' ? 'denied' : 'error', e);
     }
