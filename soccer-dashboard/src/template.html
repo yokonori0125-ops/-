@@ -174,6 +174,7 @@ th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: ri
 th:first-child, td:first-child, th.l, td.l { text-align: left; }
 thead th { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; position: sticky; top: 0; background: var(--surface); }
 table.kv td { white-space: normal; overflow-wrap: anywhere; }
+table.kv td:first-child { white-space: nowrap; width: 5.5em; vertical-align: top; }
 td.grp { color: var(--muted); font-size: 12px; }
 td.d-pos { color: var(--pos); } td.d-neg { color: var(--neg); }
 details.cat { border-top: 1px solid var(--line); }
@@ -352,6 +353,220 @@ function parseSheet(aoa) {
 }
 const own0 = ms => ms[0].own.team;
 
+/* ============ Auto-MECE: merge raw exports of differing layouts into one sheet ============ */
+// 大分類・小分類・指標・内訳の基準（各指標はいずれか1つの分類にだけ属する）
+const MECE_SCHEMA = [
+  ['1 結果', '1-1 得点側', 'ゴール', []], ['1 結果', '1-1 得点側', 'xG', []], ['1 結果', '1-1 得点側', 'シュート', ['合計', '枠内', '枠内率(%)']],
+  ['1 結果', '1-2 失点側', '失点', []], ['1 結果', '1-2 失点側', '被シュート', ['合計', '枠内', '枠内率(%)']],
+  ['2 ボール保持（攻撃）', '2-1 保持', 'ボール保持率(%)', []],
+  ['2 ボール保持（攻撃）', '2-2 パス総数', 'パス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', '前線へのパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', '横パス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', 'バックパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', '方向分類外（算出値）', ['合計', '成功']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', 'ロングパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', '1/3へのパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', '縦パス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', 'スマートパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-5 チャンスメイク', 'クロス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-6 攻撃の型', 'ポジショナルアタック', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['2 ボール保持（攻撃）', '2-6 攻撃の型', 'カウンターアタック', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['2 ボール保持（攻撃）', '2-7 ボールロス', 'ボールロス（ゾーン別）', ['合計', '低', '中', '高']],
+  ['2 ボール保持（攻撃）', '2-8 その他', 'オフサイド', []],
+  ['3 ボール非保持（守備）', '3-1 ボール奪取', 'リカバリー（ゾーン別）', ['合計', '低', '中', '高']],
+  ['3 ボール非保持（守備）', '3-1 ボール奪取', 'インターセプト', []],
+  ['3 ボール非保持（守備）', '3-1 ボール奪取', 'スライディングタックル', ['合計', '成功', '成功率(%)']],
+  ['3 ボール非保持（守備）', '3-2 クリア', 'クリア', []],
+  ['4 セットプレー', '4-1 攻撃セットプレー', 'CK', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['4 セットプレー', '4-1 攻撃セットプレー', 'FK', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['4 セットプレー', '4-1 攻撃セットプレー', 'PK', ['合計', '成功', '成功率(%)']],
+  ['4 セットプレー', '4-2 リスタート', 'スローイン', ['合計', '成功', '成功率(%)']],
+  ['4 セットプレー', '4-2 リスタート', 'ゴールキック', []],
+  ['5 競り合い（局面横断）', '5-1 総数', '競り合い（全体）', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', '攻め競り合い', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', '守り競り合い', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', '空中競り合い', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', 'その他（算出値）', ['件数', '勝ち']],
+  ['6 規律', '6-1 ファウル・警告', 'ファウル', []], ['6 規律', '6-1 ファウル・警告', 'イエローカード', []], ['6 規律', '6-1 ファウル・警告', 'レッドカード', []],
+];
+const MECE_CATS = ['1 結果', '2 ボール保持（攻撃）', '3 ボール非保持（守備）', '4 セットプレー', '5 競り合い（局面横断）', '6 規律', '7 その他（未分類）'];
+// 名称の揺れ（元データの見出し → 基準の指標名）
+const RAW_RENAME = { '枠内シュート': 'シュート', '与えたゴール': '失点', '被ゴール': '失点', 'ファール': 'ファウル', 'ボールロス': 'ボールロス（ゾーン別）',
+  'リカバリー': 'リカバリー（ゾーン別）', '競り合い': '競り合い（全体）', 'ボール保持': 'ボール保持率(%)', 'コーナーキック': 'CK', 'フリーキック': 'FK', 'ペナルティキック': 'PK' };
+const INFO_SYN = { '日付': '日付', '試合': '試合', '大会': '大会', '期間': '試合時間(分)', '試合時間(分)': '試合時間(分)', '試合時間': '試合時間(分)',
+  'グループのデータベース': 'チーム', 'チーム': 'チーム', 'スキーム': 'フォーメーション', 'フォーメーション': 'フォーメーション', '区分': '区分' };
+const INFO_ORDER = ['日付', '試合', '大会', '試合時間(分)', 'チーム', '区分', 'フォーメーション'];
+// 未知の指標の振り分け（上から順に判定）
+const HEURISTIC = [[4, /CK|FK|PK|スローイン|ゴールキック|コーナー|フリーキック|セットプレー/], [6, /ファウル|ファール|カード|警告|退場/],
+  [5, /競り合い|デュエル|空中戦/], [1, /ゴール|xG|シュート|得点|失点/], [3, /リカバリー|インターセプト|タックル|クリア|奪取|ブロック|プレス|守/],
+  [2, /パス|保持|ポゼッション|クロス|ドリブル|アタック|ロス|オフサイド|攻|タッチ/]];
+const DERIVED = [
+  ['方向分類外（算出値）', '合計', 'パス', '合計', ['前線へのパス', '横パス', 'バックパス']],
+  ['方向分類外（算出値）', '成功', 'パス', '成功', ['前線へのパス', '横パス', 'バックパス']],
+  ['その他（算出値）', '件数', '競り合い（全体）', '件数', ['攻め競り合い', '守り競り合い', '空中競り合い']],
+  ['その他（算出値）', '勝ち', '競り合い（全体）', '勝ち', ['攻め競り合い', '守り競り合い', '空中競り合い']],
+];
+
+const rateLabel = s => ({ '成功': '成功率(%)', '勝ち': '勝率(%)', 'シュートあり': 'シュート到達率(%)', '枠内': '枠内率(%)' }[s] || `${s}率(%)`);
+const numOrNull = v => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+
+// 1 枚目の見出し行が「日付」で始まる書き出し形式（1 試合 2 行、見出しは「指標 / 内訳」）
+function parseRawSheet(aoa, file) {
+  const hr = aoa.findIndex(r => r && clean(r[0]) === '日付');
+  if (hr < 0) return null;
+  const H = aoa[hr], width = Math.max(...aoa.slice(hr, hr + 40).map(r => (r ? r.length : 0)));
+  const starts = [];
+  for (let c = 0; c < width; c++) if (clean(H[c])) starts.push(c);
+  const info = {}, cols = [], renames = new Set();
+  starts.forEach((c, i) => {
+    const span = (i + 1 < starts.length ? starts[i + 1] : width) - c;
+    const head = clean(H[c]);
+    if (INFO_SYN[head]) { info[INFO_SYN[head]] = c; return; }
+    let parts = head.split(/\s+\/\s+/), base = parts[0], pct = false;
+    const m = base.match(/^(.*?)[,、]\s*%$/);
+    if (m) { base = m[1]; pct = true; }
+    let met = RAW_RENAME[base] || (pct ? `${base}率(%)` : base);
+    if (met !== base) renames.add(`${m ? head : base} → ${met}`);
+    let subs = parts.slice(1).map(s => (s === '正確' ? '成功' : s));
+    let labels;
+    if (base === '枠内シュート' && subs.length === 0 && span === 3) labels = ['合計', '枠内', '枠内率(%)'];
+    else if (subs.length === 0 && span === 1) labels = [''];
+    else {
+      const first = /競り合い/.test(met) ? '件数' : '合計';
+      if (span === subs.length + 1) labels = [first, ...subs];
+      else if (span === subs.length + 2) labels = [first, ...subs, rateLabel(subs.at(-1) || '')];
+      else labels = Array.from({ length: span }, (_, k) => (k === 0 ? first : subs.at(k - 1) || `列${k + 1}`));
+    }
+    labels.forEach((sub, k) => cols.push({ idx: c + k, met, sub }));
+  });
+  if (!('チーム' in info) || !cols.length) return null;
+  const label = clean((aoa[hr + 1] || [])[0]);
+  const rows = [];
+  let last = {};
+  for (let r = hr + 1; r < aoa.length; r++) {
+    const row = aoa[r] || [];
+    const first = clean(row[0]);
+    if (/^平均|^注記|^【/.test(first)) break;
+    const team = clean(row[info['チーム']]);
+    if (!team) { if (row.every(v => !clean(v))) { if (rows.length) break; } continue; }
+    const g = n => (n in info ? row[info[n]] : null);
+    for (const n of ['日付', '試合', '大会', '試合時間(分)']) { const v = g(n); if (clean(v)) last[n] = v; }
+    rows.push({ date: toISODate(last['日付']), match: clean(last['試合']), comp: clean(last['大会']), dur: last['試合時間(分)'] ?? null,
+      team, side: clean(g('区分')), form: clean(g('フォーメーション')), vals: Object.fromEntries(cols.map(c => [K(c.met, c.sub), numOrNull(row[c.idx])])) });
+  }
+  if (!rows.length) return null;
+  return { kind: 'raw', file, cols: cols.map(({ met, sub }) => ({ met, sub })), rows, ownLabel: label !== '対戦相手' ? label : '', renames: [...renames] };
+}
+
+// 整理済み（4 段見出し）シートも同じ形に変換する
+function meceSheetAsSource(aoa, file) {
+  const d = parseSheet(aoa);
+  const rows = d.matches.flatMap(m => [m.own, m.opp].map(s => ({ date: s.date, match: s.name, comp: s.comp, dur: s.dur, team: s.team,
+    side: s === m.own ? '自チーム' : '対戦相手', form: s.form, vals: s.vals })));
+  return { kind: 'mece', file, aoa, data: d, cols: d.metrics.map(c => ({ met: c.met, sub: c.sub, cat: c.cat, grp: c.grp })), rows, ownLabel: d.ownTeam, renames: [] };
+}
+
+function sourceFromSheet(aoa, file) {
+  const hr = aoa.findIndex(r => r && clean(r[0]) === '日付');
+  if (hr < 0) return null;
+  if (hr >= 1 && (aoa[hr - 1] || []).some(v => clean(v))) { try { return meceSheetAsSource(aoa, file); } catch (e) { /* fall through */ } }
+  return parseRawSheet(aoa, file);
+}
+
+function classify(met, srcCat, srcGrp) {
+  const i = MECE_SCHEMA.findIndex(s => s[2] === met);
+  if (i >= 0) return { cat: MECE_SCHEMA[i][0], grp: MECE_SCHEMA[i][1], order: i, how: 'schema' };
+  if (srcCat && MECE_CATS.includes(srcCat)) return { cat: srcCat, grp: srcGrp || `${srcCat.split(' ')[0]}-9 追加指標`, order: 1e3, how: 'source' };
+  const h = HEURISTIC.find(([, re]) => re.test(met));
+  if (h) { const cat = MECE_CATS.at(h[0] - 1); return { cat, grp: `${h[0]}-9 追加指標`, order: 1e3, how: 'keyword' }; }
+  return { cat: MECE_CATS.at(-1), grp: '7-1 未分類', order: 1e4, how: 'none' };
+}
+
+// 複数の元シートを、行（日付・試合・チーム）と列（指標・内訳）で突き合わせて 1 枚の整理済みシートにする
+function buildMece(sources) {
+  const rowMap = new Map(), colMap = new Map(), conflicts = [], files = [...new Set(sources.map(s => s.file))];
+  for (const src of sources) {
+    for (const c of src.cols) {
+      const k = K(c.met, c.sub);
+      if (!colMap.has(k)) colMap.set(k, { met: c.met, sub: c.sub, cat: c.cat, grp: c.grp, files: new Set(), seq: colMap.size });
+      colMap.get(k).files.add(src.file);
+    }
+    for (const r of src.rows) {
+      const rk = `${r.date}|${r.match}|${r.team}`;
+      if (!rowMap.has(rk)) rowMap.set(rk, { ...r, vals: {} });
+      const t = rowMap.get(rk);
+      for (const f of ['comp', 'dur', 'side', 'form']) if (t[f] == null || t[f] === '') t[f] = r[f];
+      for (const c of src.cols) {
+        const k = K(c.met, c.sub), v = r.vals[k];
+        if (v == null) continue;
+        if (t.vals[k] == null) t.vals[k] = v;
+        else if (Math.abs(t.vals[k] - v) > 1e-6) conflicts.push(`${label(c.met, c.sub)}（${r.date} ${r.team}：${t.vals[k]} / ${src.file}：${v}）`);
+      }
+    }
+  }
+  const rows = [...rowMap.values()];
+  // 算出値（元データにない場合だけ追加）
+  const derivedAdded = [];
+  for (const [met, sub, tMet, tSub, parts] of DERIVED) {
+    const k = K(met, sub), need = [K(tMet, tSub), ...parts.map(p => K(p, tSub))];
+    if (colMap.has(k) || !need.every(n => colMap.has(n))) continue;
+    colMap.set(k, { met, sub, files: new Set(['算出']), seq: colMap.size });
+    rows.forEach(r => { r.vals[k] = need.every(n => r.vals[n] != null) ? parts.reduce((a, p) => a - r.vals[K(p, tSub)], r.vals[K(tMet, tSub)]) : null; });
+    derivedAdded.push(`${met} / ${sub}`);
+  }
+  // 自チームの判定：元シートのラベル → 区分列 → 全試合に登場するチーム
+  const cnt = {};
+  rows.forEach(r => (cnt[r.team] = (cnt[r.team] || 0) + 1));
+  const own = sources.map(s => s.ownLabel).find(l => l && cnt[l]) || (rows.find(r => r.side === '自チーム') || {}).team || Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  rows.forEach(r => (r.side = r.team === own ? '自チーム' : '対戦相手'));
+  rows.sort((a, b) => b.date.localeCompare(a.date) || a.match.localeCompare(b.match) || (a.side === '自チーム' ? -1 : 1));
+  // 分類と列順（大分類 → 小分類 → 基準の並び → 初出順、同じ指標の内訳は隣り合わせ）
+  const metSeq = {};
+  for (const c of colMap.values()) metSeq[c.met] = Math.min(metSeq[c.met] ?? Infinity, c.seq);
+  const grouped = [...colMap.values()].map(c => {
+    const cl = classify(c.met, c.cat, c.grp), sch = MECE_SCHEMA.find(x => x[2] === c.met);
+    return { ...c, ...cl, catIdx: MECE_CATS.indexOf(cl.cat), subOrder: sch && sch[3].includes(c.sub) ? sch[3].indexOf(c.sub) : 50 };
+  }).sort((a, b) => a.catIdx - b.catIdx || a.grp.localeCompare(b.grp, 'ja') || a.order - b.order || metSeq[a.met] - metSeq[b.met] || a.subOrder - b.subOrder || a.seq - b.seq);
+  // 4 段見出しの組み立て
+  const W = INFO_ORDER.length + grouped.length, blank = () => Array(W).fill(null);
+  const rCat = blank(), rGrp = blank(), rMet = blank(), rSub = blank();
+  rCat[0] = '0 試合情報';
+  INFO_ORDER.forEach((n, i) => (rGrp[i] = n));
+  grouped.forEach((c, j) => {
+    const x = INFO_ORDER.length + j, prev = grouped.at(j - 1);
+    if (j === 0 || prev.cat !== c.cat) rCat[x] = c.cat;
+    if (j === 0 || prev.cat !== c.cat || prev.grp !== c.grp) rGrp[x] = c.grp;
+    if (j === 0 || prev.cat !== c.cat || prev.grp !== c.grp || prev.met !== c.met) rMet[x] = c.met;
+    rSub[x] = c.sub || null;
+  });
+  const body = rows.map(r => [r.date, r.match, r.comp, r.dur, r.team, r.side, r.form, ...grouped.map(c => r.vals[K(c.met, c.sub)] ?? null)]);
+  // 整合チェック（失点＝相手のゴール など）
+  const mirror = [];
+  for (const [a, as, b, bs] of [['失点', '', 'ゴール', ''], ['被シュート', '合計', 'シュート', '合計'], ['被シュート', '枠内', 'シュート', '枠内']]) {
+    if (!colMap.has(K(a, as)) || !colMap.has(K(b, bs))) continue;
+    for (const r of rows) {
+      const o = rows.find(x => x.date === r.date && x.match === r.match && x !== r);
+      if (o && r.vals[K(a, as)] != null && o.vals[K(b, bs)] != null && r.vals[K(a, as)] !== o.vals[K(b, bs)]) mirror.push(`${r.date} ${r.team}：${label(a, as)} ${r.vals[K(a, as)]} ≠ 相手の${label(b, bs)} ${o.vals[K(b, bs)]}`);
+    }
+  }
+  const dups = [...colMap.values()].filter(c => c.files.size > 1).map(c => label(c.met, c.sub));
+  const byHow = how => grouped.filter(c => c.how === how).map(c => label(c.met, c.sub));
+  const metCount = new Set(grouped.map(c => c.met)).size;
+  const notes = [
+    `【自動整理】${files.length}ファイル（${files.join('、')}）を、日付・試合・チームで突き合わせて1シートに統合。${rows.length / 2}試合、指標 ${metCount}個（${grouped.length}列）を${new Set(grouped.map(c => c.cat)).size}つの大分類に整理。`,
+    `【MECE構造】大分類は「${MECE_CATS.join(' / ')}」。各列はいずれか1つの分類にのみ属する。`,
+    dups.length && `【重複の統合】複数ファイルにある同じ指標を1列に統合：${dups.join('、')}。${conflicts.length ? '' : '全行で値が一致。'}`,
+    conflicts.length && `【値の不一致】${conflicts.length}件。先に読み込んだファイルの値を採用：${conflicts.slice(0, 8).join('、')}${conflicts.length > 8 ? ' ほか' : ''}。`,
+    [...new Set(sources.flatMap(s => s.renames))].length && `【名称の補正】${[...new Set(sources.flatMap(s => s.renames))].join('、')}。`,
+    derivedAdded.length && `【算出値】内訳の網羅性を確保するため追加：${derivedAdded.join('、')}（総数 − 内訳の和）。`,
+    byHow('keyword').length && `【キーワードで分類】基準にない指標を名前から振り分け：${byHow('keyword').join('、')}。`,
+    byHow('none').length && `【未分類】分類できなかった指標：${byHow('none').join('、')}。`,
+    mirror.length && `【元データの不整合】${mirror.slice(0, 6).join('、')}${mirror.length > 6 ? ' ほか' : ''}。補正せず元データのまま掲載。`,
+  ].filter(Boolean);
+  const aoa = [[`${own} チームスタッツ（${rows.length / 2}試合）— 自動MECE整理`], [], rCat, rGrp, rMet, rSub, ...body, [], ['注記'], ...notes.map(n => [n])];
+  return { aoa, summary: { files: files.length, matches: rows.length / 2, metrics: metCount, columns: grouped.length, dups: dups.length, conflicts: conflicts.length, unclassified: byHow('none').length } };
+}
+
 /* ============ Stats helpers ============ */
 const mean = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 const sd = a => { const v = a.filter(x => x != null), m = mean(v); return v.length > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / (v.length - 1)) : 0; };
@@ -404,9 +619,9 @@ const keyMetrics = () => KEY_METRICS.filter(([m, s]) => has(m, s));
 
 /* ============ State ============ */
 const S = { data: null, pieSide: 'own', trendKey: K('xG'), showOpp: true, showAvg: true, source: 'sample', fileName: '', strong: new Set(), ana: null };
-function loadData(d, source, fileName) {
-  S.data = d; S.source = source; S.fileName = fileName || ''; S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
-  S.strong = new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]).filter(t => STRONG_DEFAULT.includes(t))); S.ana = null;
+function loadData(d, source, fileName, aoa) {
+  S.data = d; S.aoa = aoa || null; S.source = source; S.fileName = fileName || ''; S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
+  S.anaCond = 0; S.anaTarget = null; S.strong = new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]).filter(t => STRONG_DEFAULT.includes(t))); S.ana = null;
 }
 
 /* ============ Theme / charts ============ */
@@ -791,13 +1006,13 @@ function renderImport(msg) {
   <section class="card"><div class="card-head"><h2>データ取込</h2><p>Excel を読み込むと全ページが自動で再計算されます</p></div>
     ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
     <div class="drop" id="drop">
-      <strong>チームスタッツの .xlsx ファイルをここにドロップ</strong>
-      <span class="muted">またはファイルを選択（.xlsx / .xls / .csv）</span>
+      <strong>チームスタッツの Excel をここにドロップ（複数可）</strong>
+      <span class="muted">書式の異なる複数ファイルも、指標を自動でMECEに整理して1つに統合します（.xlsx / .xls / .csv）</span>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
         <label class="btn" for="file">ファイルを選択</label>
         ${!CLOUD && SAMPLE_AOA && S.source !== 'sample' ? '<button type="button" class="btn ghost" id="reset">サンプルデータに戻す</button>' : ''}
       </div>
-      <input type="file" id="file" accept=".xlsx,.xls,.csv" class="sr-only">
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple class="sr-only">
     </div>
     <p class="muted" style="font-size:12px;margin:10px 0 0">${CLOUD ? 'ファイルはブラウザ内で解析し、表のデータをあなた専用の Firestore に保存します。保存データは許可されたアカウント以外からは読み書きできません。' : 'ファイルはブラウザ内だけで解析され、外部には送信されません。読み込んだデータはこのタブを閉じるまで保持されます。'}</p>
   </section>
@@ -810,8 +1025,9 @@ function renderImport(msg) {
         <tr><td class="l">指標列</td><td>${d.metrics.length}（大分類 ${d.catList.length}）</td></tr>
         <tr><td class="l">期間</td><td>${esc(d.matches[0].date)} 〜 ${esc(d.matches[d.matches.length - 1].date)}</td></tr>
       </tbody></table>
-      <h3 style="margin:16px 0 8px">指標の分類</h3>
-      <ul class="spec">${d.catList.map(c => { const g = [...new Set(d.metrics.filter(x => x.cat === c).map(x => x.grp))]; return `<li><b>${esc(c)}</b> <span class="muted">— ${g.map(esc).join('、')}</span></li>`; }).join('')}</ul>
+      <h3 style="margin:16px 0 8px">指標の分類（MECE）</h3>
+      <ul class="spec">${d.catList.map(c => { const ms = d.metrics.filter(x => x.cat === c), g = [...new Set(ms.map(x => x.grp))]; return `<li><b>${esc(c)}</b> <span class="muted">${new Set(ms.map(x => x.met)).size}指標 — ${g.map(esc).join('、')}</span></li>`; }).join('')}</ul>
+      ${CLOUD && S.aoa ? '<button type="button" class="btn ghost" id="dl-mece" style="margin-top:14px">整理済みシートを Excel で保存</button>' : ''}
     </section>`}
     <section class="card"><div class="card-head"><h2>対応フォーマット</h2></div>
       <ol class="spec">
@@ -821,40 +1037,54 @@ function renderImport(msg) {
         <li>内訳の行（例：「合計」「成功」「成功率(%)」）。</li>
         <li>以降、1試合につき「自チーム」「対戦相手」の2行。「平均」で始まる行や空行で終了。</li>
       </ol>
-      ${d && d.notes.length ? `<h3 style="margin:16px 0 8px">ファイル内の注記</h3><ul class="notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <p class="muted small" style="margin:10px 0 0">データ提供元の書き出し形式（1行目が「日付・試合・大会・期間・グループのデータベース・スキーム」と「指標 / 内訳」の見出し）にも対応します。複数ファイルを同時に読み込むと、行は日付・試合・チームで突き合わせ、重複指標の統合、名称の統一、算出列の追加、大分類への振り分けを自動で行います。</p>
+      ${d && d.notes.length ? `<h3 style="margin:16px 0 8px">整理の記録・注記</h3><ul class="notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     </section>
   </div>`;
   const drop = document.getElementById('drop'), input = document.getElementById('file');
-  input.addEventListener('change', () => input.files[0] && readFile(input.files[0]));
+  input.addEventListener('change', () => input.files.length && readFiles([...input.files]));
   ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+  drop.addEventListener('drop', e => e.dataTransfer.files.length && readFiles([...e.dataTransfer.files]));
+  const dl = document.getElementById('dl-mece'); if (dl) dl.addEventListener('click', downloadMece);
   const reset = document.getElementById('reset');
-  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample'); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
+  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
 }
 
-function readFile(file) {
-  const fr = new FileReader();
-  fr.onload = async () => {
-    try {
-      const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: true });
-      let parsed = null, aoa = null, lastErr = null;
+async function readFiles(files) {
+  renderImport({ type: 'ok', text: `${files.length}ファイルを解析しています…` });
+  try {
+    const sources = [], skipped = [];
+    for (const f of files) {
+      const wb = XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: 'array', cellDates: true });
+      let found = false;
       for (const name of wb.SheetNames) {
-        try {
-          aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: true })
-            .map(r => r.map(v => (v instanceof Date ? toISODate(v) : v)));
-          parsed = parseSheet(aoa); break;
-        } catch (e) { lastErr = e; }
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: true })
+          .map(r => r.map(v => (v instanceof Date ? toISODate(v) : v)));
+        const src = sourceFromSheet(aoa, wb.SheetNames.length > 1 ? `${f.name}（${name}）` : f.name);
+        if (src) { sources.push(src); found = true; }
       }
-      if (!parsed) throw lastErr || new Error('読み込めるシートがありません。');
-      if (CLOUD) await saveCloud(aoa, file.name);
-      loadData(parsed, CLOUD ? 'cloud' : 'upload', file.name); updateBrand();
-      toast(`${file.name} から ${parsed.matches.length}試合を読み込みました${CLOUD ? '（クラウドに保存）' : ''}`);
-      location.hash = '#overview'; if (location.hash === '#overview') route();
-    } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
-  };
-  fr.onerror = () => renderImport({ type: 'err', text: 'ファイルを開けませんでした。別のファイルで試してください。' });
-  fr.readAsArrayBuffer(file);
+      if (!found) skipped.push(f.name);
+    }
+    if (!sources.length) throw new Error('「日付」と「チーム（グループのデータベース）」の列を持つシートが見つかりません。');
+    // 整理済みシート 1 枚だけならそのまま、それ以外は統合して MECE に整理する
+    const single = sources.length === 1 && sources[0].kind === 'mece';
+    const built = single ? { aoa: sources[0].aoa, summary: null } : buildMece(sources);
+    const parsed = parseSheet(built.aoa);
+    const name = files.length === 1 ? files[0].name : `${files.length}ファイルを統合（${files.map(f => f.name).join('、')}）`;
+    if (CLOUD) await saveCloud(built.aoa, name);
+    loadData(parsed, CLOUD ? 'cloud' : 'upload', name, built.aoa); updateBrand();
+    const sm = built.summary;
+    toast(sm ? `${sm.files}ファイルを統合：${sm.matches}試合・指標${sm.metrics}個を整理${skipped.length ? `（読み込めなかったファイル ${skipped.length}件）` : ''}`
+      : `${files[0].name} から ${parsed.matches.length}試合を読み込みました${CLOUD ? '（クラウドに保存）' : ''}`);
+    location.hash = '#overview'; if (location.hash === '#overview') route();
+  } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
+}
+
+function downloadMece() {
+  const ws = XLSX.utils.aoa_to_sheet(S.aoa), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'TeamStats_MECE');
+  XLSX.writeFile(wb, `${S.data.ownTeam}_TeamStats_MECE.xlsx`);
 }
 
 /* ============ Factor analysis: correlation / multiple regression ============ */
@@ -1098,6 +1328,11 @@ function dumbbellSVG(A, t) {
 
 function renderAnalysis() {
   const d = S.data, A = runAnalysis();
+  if (!A.conds.length || !A.ind.length) {
+    const need = [!A.ind.length && '過程指標（パス・リカバリーなど）', !A.conds.length && '得点（ゴール）または xG'].filter(Boolean).join('と');
+    app.innerHTML = `<section class="card"><div class="card-head"><h2>要因分析</h2></div><p class="muted" style="margin:0">読み込んだデータに${need}の列がないため、要因分析を計算できません。該当する指標を含むファイルを、ほかのファイルと一緒に読み込んでください。</p></section>`;
+    return;
+  }
   const teams = [...new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]))];
   const condLabel = c => `${c.tl}｜${c.adj ? 'チーム力補正' : '補正なし'}`;
   S.anaTarget = S.anaTarget && A.ind.length && A.ind[0].raw[S.anaTarget] != null ? S.anaTarget : 'xG';
@@ -1259,7 +1494,7 @@ function startUI() {
 }
 function rerenderSafe() { if (!CLOUD || (cloudUser && S.access)) route(); }
 if (!CLOUD) {
-  try { loadData(parseSheet(SAMPLE_AOA), 'sample'); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  try { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
   if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(route); }
 } else {
   startUI();
@@ -1273,7 +1508,7 @@ if (!CLOUD) {
     try {
       const snap = await dataDoc().get();
       S.access = true;
-      if (snap.exists) { const v = snap.data(); loadData(parseSheet(JSON.parse(v.aoa)), 'cloud', v.fileName); updateBrand(); }
+      if (snap.exists) { const v = snap.data(), aoa = JSON.parse(v.aoa); loadData(parseSheet(aoa), 'cloud', v.fileName, aoa); updateBrand(); }
       route();
       if (document.fonts) document.fonts.ready.then(rerenderSafe);
     } catch (e) {
