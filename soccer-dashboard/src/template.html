@@ -2173,7 +2173,17 @@ function route() {
 function rerenderForTheme() { applyDisplay(); rerenderSafe(); }
 
 /* ============ Boot: sample mode (artifact) or cloud mode (Firebase) ============ */
-const CLOUD = typeof window.firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+const CLOUD = !!window.MATCHLENS_CLOUD && typeof window.firebase !== 'undefined';
+// Firebase Hosting が配信する設定を読み、ログイン処理（authDomain）をアプリと同じドメインで行う。
+// 既定の *.firebaseapp.com のままだと、スマホのブラウザが別ドメインのストレージを遮断し、
+// リダイレクト方式のログインが「missing initial state」で失敗するため。
+async function initFirebase() {
+  const res = await fetch('/__/firebase/init.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Firebase の設定を読み込めませんでした（HTTP ${res.status}）`);
+  const cfg = await res.json();
+  if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) cfg.authDomain = location.host;
+  firebase.initializeApp(cfg);
+}
 let cloudUser = null;
 const dataDoc = () => firebase.firestore().doc(`users/${cloudUser.uid}/datasets/current`);
 async function saveCloud(aoa, fileName, files, excluded) {
@@ -2221,7 +2231,11 @@ if (!CLOUD) {
 } else {
   startUI();
   renderGate('loading');
+  initFirebase().then(bootCloud).catch(e => renderGate('error', e));
+}
+function bootCloud() {
   document.getElementById('signout').addEventListener('click', () => firebase.auth().signOut());
+  firebase.auth().getRedirectResult().catch(e => { if (e && e.code) renderGate('signin', e); });
   firebase.auth().onAuthStateChanged(async user => {
     cloudUser = user; S.access = false; S.data = null; S.fullAoa = null; S.allMatches = null; S.excluded = new Set(); S.ana = null; S.viewing = null; S.prev = null; S.histCache = null; S.cmpSel = new Set(); updateBrand(); updateBanner();
     const acct = document.getElementById('account');

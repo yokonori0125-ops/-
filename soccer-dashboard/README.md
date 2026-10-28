@@ -41,6 +41,7 @@ GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestor
 3. **Firestore Database** → データベースを作成（本番環境モード）。
 4. **Hosting** → 「始める」でホスティングを有効にする（CLI の手順はスキップしてよい）。
 5. **プロジェクトの設定** → マイアプリ → **ウェブアプリを追加**（Hosting の `/__/firebase/init.js` がこの設定を配信する）。
+5-1. [Google Cloud コンソールの認証情報](https://console.cloud.google.com/apis/credentials) で「Web client (auto created by Google Service)」を開き、**承認済みのリダイレクト URI** に `https://<プロジェクトID>.web.app/__/auth/handler` を追加する。アプリはログイン処理を開いているドメイン上で行う（スマホのブラウザが別ドメインのストレージを遮断し、ログインが「missing initial state」で失敗するのを防ぐため）ので、そのドメインのハンドラ URI が必要です。独自ドメインを使う場合はそのドメインの URI も追加します。
 6. [Google Cloud コンソールの IAM](https://console.cloud.google.com/iam-admin/serviceaccounts) でデプロイ用のサービスアカウントを作り、ロール **Firebase 管理者**（`roles/firebase.admin`）を付けて、JSON キーを発行する。
 7. GitHub のリポジトリ → Settings → Secrets and variables → Actions に、次の 3 つを登録する。
 
