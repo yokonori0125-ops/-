@@ -1,19 +1,35 @@
 rules_version = '2';
 
-// __ALLOWED_EMAIL__ はデプロイ時に GitHub のシークレット ALLOWED_EMAIL で置き換わる（build.py --firebase）
+// Google アカウントでログインした人は、自分の領域（users/<自分の uid>/）だけを読み書きできる。
+// 他の利用者の領域、決められた場所以外、未ログイン、Google 以外のログインはすべて拒否。
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner() {
+    function signedInAs(uid) {
       return request.auth != null
+        && request.auth.uid == uid
         && request.auth.token.email_verified == true
-        && request.auth.token.email == '__ALLOWED_EMAIL__';
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    // 1 件あたりのシートの大きさの上限（Firestore の 1 文書の上限 1MiB 未満）
+    function sheetWithinLimit() {
+      return request.resource.data.aoa is string && request.resource.data.aoa.size() < 950000;
     }
 
-    // 許可アカウント本人の領域だけを読み書きできる
-    match /users/{uid}/{document=**} {
-      allow read, write: if isOwner() && request.auth.uid == uid;
+    // 取り込んだデータ（現在のデータ）
+    match /users/{uid}/datasets/{docId} {
+      allow read, delete: if signedInAs(uid);
+      allow create, update: if signedInAs(uid) && sheetWithinLimit();
     }
-
-    // それ以外のパスは規定どおりすべて拒否
+    // 保存した分析
+    match /users/{uid}/analyses/{docId} {
+      allow read, delete: if signedInAs(uid);
+      allow create, update: if signedInAs(uid) && sheetWithinLimit();
+    }
+    // 表示設定
+    match /users/{uid}/settings/{docId} {
+      allow read, delete: if signedInAs(uid);
+      allow create, update: if signedInAs(uid)
+        && request.resource.data.keys().hasOnly(['bg', 'accent', 'pattern', 'strength']);
+    }
   }
 }

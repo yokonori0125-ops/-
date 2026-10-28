@@ -782,9 +782,11 @@ function filterAoa(aoa, excluded) {
   out.push([], [`【試合の選択】${dropped.size}試合を除外してデータシートに反映：${[...dropped.values()].join('、')}。平均行は除外。`]);
   return out;
 }
+let DATA_SEQ = 0;
 function setDataset(fullAoa, o = {}) {
   const full = parseSheet(fullAoa), keys = new Set(full.matches.map(m => matchKey(m.date, m.name)));
   S.fullAoa = fullAoa; S.allMatches = full.matches;
+  S.dataId = o.dataId || ++DATA_SEQ;   // 読み込みごとに別の番号。分析結果のキャッシュをデータ（とアカウント）ごとに分ける
   S.excluded = new Set((o.excluded || []).filter(k => keys.has(k)));
   if (S.excluded.size >= keys.size) S.excluded = new Set();
   const view = filterAoa(fullAoa, S.excluded);
@@ -1276,7 +1278,7 @@ function renderImport(msg) {
       </div>
       <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple class="sr-only">
     </div>
-    <p class="muted" style="font-size:12px;margin:10px 0 0">${CLOUD ? 'ファイルはブラウザ内で解析し、表のデータをあなた専用の Firestore に保存します。保存データは許可されたアカウント以外からは読み書きできません。' : 'ファイルはブラウザ内だけで解析され、外部には送信されません。読み込んだデータはこのタブを閉じるまで保持されます。'}</p>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">${CLOUD ? 'ファイルはブラウザ内で解析し、表のデータをあなたのアカウント専用の領域（Firestore）に保存します。ほかの利用者からは読み書きできません。' : 'ファイルはブラウザ内だけで解析され、外部には送信されません。読み込んだデータはこのタブを閉じるまで保持されます。'}</p>
   </section>
   ${d && S.allMatches ? selectionCardHTML() : ''}
   <div class="grid">
@@ -1478,7 +1480,7 @@ function mulberry32(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 |
 function shuffled(arr, rnd) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
 /* --- the analysis itself --- */
-const analysisKey = () => [...S.strong].sort().join('|') + '#' + S.source + S.fileName + S.data.matches.map(m => m.date + m.name).join(',');
+const analysisKey = () => S.dataId + '#' + [...S.strong].sort().join('|') + '#' + S.data.matches.map(m => m.date + m.name).join(',');
 const ANA_CACHE = new Map();
 function analysisReady() { const k = analysisKey(); return (S.ana && S.ana.key === k) || ANA_CACHE.has(k); }
 // 並べ替え検定以外をすべて計算し、並べ替え検定は「作業」として返す（重い部分を作業スレッドに回すため）
@@ -1946,7 +1948,7 @@ function localWrite(list) {
   catch (e) { S.storeVolatile = true; memStore = list; }
 }
 const anaColl = () => firebase.firestore().collection(`users/${cloudUser.uid}/analyses`);
-// 保存先：Firebase 版は本人専用の Firestore、単体版はこのブラウザ
+// 保存先：Firebase 版はログインしたアカウント専用の Firestore の領域、単体版はこのブラウザ
 const Store = {
   async list() {
     if (!CLOUD) return localList();
@@ -1998,7 +2000,7 @@ function updateBanner() {
   document.getElementById('back-current').addEventListener('click', backToCurrent);
 }
 function openSaved(rec) {
-  if (!S.viewing) S.prev = { fullAoa: S.fullAoa, excluded: [...(S.excluded || [])], source: S.source, fileName: S.fileName, files: S.files, strong: [...(S.strong || [])] };
+  if (!S.viewing) S.prev = { fullAoa: S.fullAoa, dataId: S.dataId, excluded: [...(S.excluded || [])], source: S.source, fileName: S.fileName, files: S.files, strong: [...(S.strong || [])] };
   setDataset(JSON.parse(rec.aoa), { source: 'history', fileName: rec.name, files: rec.files, excluded: rec.excluded || [], strong: rec.analysis && rec.analysis.strong });
   S.viewing = rec.name; updateBrand(); updateBanner();
   toast(`「${rec.name}」を開きました`);
@@ -2006,14 +2008,14 @@ function openSaved(rec) {
 }
 function backToCurrent() {
   const p = S.prev || {};
-  if (p.fullAoa) setDataset(p.fullAoa, { source: p.source, fileName: p.fileName, files: p.files, excluded: p.excluded, strong: p.strong });
+  if (p.fullAoa) setDataset(p.fullAoa, { dataId: p.dataId, source: p.source, fileName: p.fileName, files: p.files, excluded: p.excluded, strong: p.strong });
   else { S.data = null; S.aoa = null; S.fullAoa = null; S.allMatches = null; S.excluded = new Set(); S.ana = null; }
   S.viewing = null; S.prev = null; updateBrand(); updateBanner(); route();
 }
 
 async function renderHistory(msg) {
   const d = S.data, r = d ? recordOf(d) : null;
-  const where = CLOUD ? 'あなた専用の Firestore に保存します（許可されたアカウント以外は読めません）。' : S.storeVolatile ? 'この環境ではブラウザに保存できないため、タブを閉じると消えます。' : 'このブラウザに保存します（他の端末やブラウザには共有されません）。';
+  const where = CLOUD ? 'あなたのアカウント専用の領域に保存します（ほかの利用者からは読めません）。' : S.storeVolatile ? 'この環境ではブラウザに保存できないため、タブを閉じると消えます。' : 'このブラウザに保存します（他の端末やブラウザには共有されません）。';
   app.innerHTML = `
   <section class="card"><div class="card-head"><h2>現在の分析を保存</h2><p>${where}</p></div>
     ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
@@ -2030,7 +2032,7 @@ async function renderHistory(msg) {
     e.preventDefault();
     const btn = document.getElementById('save-btn'); btn.disabled = true; btn.textContent = '保存しています…';
     try { const nm = await saveCurrent(document.getElementById('save-name').value.trim(), document.getElementById('save-memo').value.trim()); renderHistory({ type: 'ok', text: `「${nm}」を保存しました。` }); }
-    catch (err) { renderHistory({ type: 'err', text: `保存できませんでした：${err.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : err.message}` }); }
+    catch (err) { renderHistory({ type: 'err', text: `保存できませんでした：${err.code === 'permission-denied' ? 'このアカウントでは保存できません。メールアドレスが確認済みの Google アカウントでログインし直してください。' : err.message}` }); }
   });
   let list;
   try { list = await Store.list(); } catch (err) { document.getElementById('hist-list').innerHTML = `<div class="msg err">一覧を読み込めませんでした（${esc(err.code || err.message)}）。</div>`; return; }
@@ -2184,6 +2186,11 @@ function sanitizeDisplay(v) {
   }
   return o;
 }
+// この端末に残した表示設定を消して既定に戻す（同じブラウザで次にログインする人に引き継がない）
+function resetDisplay() {
+  try { localStorage.removeItem(DISPLAY_KEY); } catch (e) { /* noop */ }
+  S.display = { ...DEFAULT_DISPLAY }; applyDisplay();
+}
 function loadDisplay() { try { return sanitizeDisplay(JSON.parse(localStorage.getItem(DISPLAY_KEY) || '{}')); } catch (e) { return { ...DEFAULT_DISPLAY }; } }
 let displaySaveTimer;
 function saveDisplay() {
@@ -2197,6 +2204,7 @@ async function loadCloudDisplay() {
   try {
     const snap = await firebase.firestore().doc(`users/${cloudUser.uid}/settings/display`).get();
     if (snap.exists) { S.display = sanitizeDisplay(snap.data()); try { localStorage.setItem(DISPLAY_KEY, JSON.stringify(S.display)); } catch (e) { /* noop */ } applyDisplay(); }
+    else resetDisplay();
   } catch (e) { /* 既定の表示のまま */ }
 }
 const DISPLAY_PROPS = ['--bg', '--page-fg', '--page-muted', '--nav', '--nav-fg', '--nav-muted', '--hl', '--btn-bg', '--btn-fg', '--bg-pattern'];
@@ -2315,7 +2323,7 @@ async function saveCloud(aoa, fileName, files, excluded) {
   try {
     await dataDoc().set({ aoa: json, fileName, files: files || [fileName], excluded: excluded || [], uploadedAt: firebase.firestore.FieldValue.serverTimestamp() });
   } catch (e) {
-    throw new Error(e.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : `クラウドに保存できませんでした（${e.code || e.message}）。`);
+    throw new Error(e.code === 'permission-denied' ? 'このアカウントでは保存できません。メールアドレスが確認済みの Google アカウントでログインし直してください。' : `クラウドに保存できませんでした（${e.code || e.message}）。`);
   }
 }
 function renderGate(state, err) {
@@ -2324,8 +2332,8 @@ function renderGate(state, err) {
   const who = cloudUser ? esc(cloudUser.email || '') : '';
   const body = {
     loading: '<p class="muted">確認しています…</p>',
-    signin: `<p>このダッシュボードは、許可されたアカウントだけが利用できます。</p><button type="button" class="btn" id="signin">Google でログイン</button>${err ? `<div class="msg err" style="margin-top:14px">ログインできませんでした（${esc(err.code || err.message)}）。もう一度お試しください。</div>` : ''}`,
-    denied: `<div class="msg err">${who} にはアクセス権がありません。許可されたアカウントでログインし直してください。</div><button type="button" class="btn ghost" id="switch" style="margin-top:14px">別のアカウントでログイン</button>`,
+    signin: `<p>Google アカウントでログインすると利用できます。読み込んだデータと保存した分析はアカウントごとに分けて保存され、ほかの利用者からは見えません。</p><button type="button" class="btn" id="signin">Google でログイン</button>${err ? `<div class="msg err" style="margin-top:14px">ログインできませんでした（${esc(err.code || err.message)}）。もう一度お試しください。</div>` : ''}`,
+    denied: `<div class="msg err">${who} ではデータ領域を利用できません。メールアドレスが確認済みの Google アカウントでログインし直してください。</div><button type="button" class="btn ghost" id="switch" style="margin-top:14px">別のアカウントでログイン</button>`,
     error: `<div class="msg err">データを読み込めませんでした（${esc(err ? err.code || err.message : '')}）。通信状態を確認して、再読み込みしてください。</div>`,
   }[state];
   app.innerHTML = `<section class="card gate"><div class="eyebrow">Match Lens</div><h1 style="font-family:var(--font-display);font-size:34px;margin:4px 0 12px">ログイン</h1>${body}</section>`;
@@ -2360,10 +2368,10 @@ function bootCloud() {
   document.getElementById('signout').addEventListener('click', () => firebase.auth().signOut());
   firebase.auth().getRedirectResult().catch(e => { if (e && e.code) renderGate('signin', e); });
   firebase.auth().onAuthStateChanged(async user => {
-    cloudUser = user; S.access = false; S.data = null; S.fullAoa = null; S.allMatches = null; S.excluded = new Set(); S.ana = null; S.viewing = null; S.prev = null; S.histCache = null; S.cmpSel = new Set(); updateBrand(); updateBanner();
+    cloudUser = user; ANA_CACHE.clear(); S.access = false; S.data = null; S.fullAoa = null; S.allMatches = null; S.excluded = new Set(); S.ana = null; S.viewing = null; S.prev = null; S.histCache = null; S.cmpSel = new Set(); updateBrand(); updateBanner();
     const acct = document.getElementById('account');
     acct.hidden = !user; document.getElementById('acct-email').textContent = user ? user.email || '' : '';
-    if (!user) return renderGate('signin');
+    if (!user) { resetDisplay(); return renderGate('signin'); }
     try {
       const snap = await dataDoc().get();
       S.access = true;

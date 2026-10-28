@@ -1,11 +1,10 @@
 """Match Lens のビルド
 
   python3 build.py --sample src/sample-data.json   → index.html（サンプルデータ同梱の単体版。データを含むため Git に入れない）
-  ALLOWED_EMAIL=you@example.com python3 build.py --firebase
-                                                    → build/public/index.html（データを含まない Firebase 版）
-                                                      build/firestore.rules（許可アカウントを埋め込んだルール）
+  python3 build.py --firebase                      → build/public/index.html（データを含まない Firebase 版）
+                                                      build/firestore.rules（アカウントごとに領域を分けるルール）
 """
-import argparse, json, os, pathlib, re, sys
+import argparse, json, pathlib, shutil
 
 ROOT = pathlib.Path(__file__).parent
 FIREBASE_SDK = '10.12.2'
@@ -28,9 +27,6 @@ def build_sample(data_path):
 
 
 def build_firebase():
-    email = os.environ.get('ALLOWED_EMAIL', '').strip()
-    if not re.fullmatch(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", email):
-        sys.exit('ALLOWED_EMAIL に、アクセスを許可する Google アカウントのメールアドレスを設定してください。')
     src = template().replace('__HEAD_EXTRA__', FIREBASE_HEAD).replace('__DATA__', 'null')
     head, body = src.split('<header class="nav">', 1)
     html = ('<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n'
@@ -41,8 +37,7 @@ def build_firebase():
     out.mkdir(parents=True, exist_ok=True)
     (out / 'index.html').write_text(html, encoding='utf-8')
     (out / 'robots.txt').write_text('User-agent: *\nDisallow: /\n', encoding='utf-8')
-    rules = (ROOT / 'firestore.rules').read_text(encoding='utf-8').replace('__ALLOWED_EMAIL__', email)
-    (ROOT / 'build/firestore.rules').write_text(rules, encoding='utf-8')
+    shutil.copyfile(ROOT / 'firestore.rules', ROOT / 'build/firestore.rules')
     print('wrote', out / 'index.html', len(html), 'bytes, and build/firestore.rules')
 
 

@@ -3,17 +3,20 @@
 サッカーのチームスタッツ（Excel）を読み込み、試合別・時系列のグラフと、得点・失点の要因分析（相関・重回帰）を自動で作るダッシュボードです。
 GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestore）で動かします。
 
-## アクセス制限の仕組み
+## アクセスとプライバシーの仕組み
+
+Google アカウントでログインすれば誰でも利用でき、データはアカウントごとに分けて保存されます。
 
 | 層 | 誰が見られるか | 中身 |
 | --- | --- | --- |
 | Firebase Hosting | URL を知っている人（ログイン画面のみ） | アプリのコード。試合データは含まない |
 | Firebase Authentication | Google アカウントでログインした人 | ログイン情報のみ |
-| Firestore | **許可した 1 アカウントだけ** | アップロードした試合データ |
+| Firestore `users/<uid>/` | **その uid のアカウント本人だけ** | 本人が取り込んだデータ、保存した分析、表示設定 |
 
-- Firestore のセキュリティルール（`firestore.rules`）で、メールアドレスが `ALLOWED_EMAIL` と一致し、確認済みのアカウントだけに読み書きを許可しています。それ以外はすべて拒否されます。
-- 許可するメールアドレスはリポジトリに書かず、GitHub のシークレットからデプロイ時に埋め込みます。
+- Firestore のセキュリティルール（`firestore.rules`）は、Google でログインし、メールアドレスが確認済みで、uid がパスの `<uid>` と一致する場合だけ読み書きを許可します。ほかの利用者の領域、利用者の一覧、決められた場所（`datasets` `analyses` `settings`）以外への読み書きはすべて拒否されます。
+- 1 件あたりのシートの大きさ（約 950KB 未満）と表示設定の項目もルールで制限しています。
 - ルールは `npm run test:rules`（Firestore エミュレーター）で検証し、CI でデプロイ前に毎回実行します。
+- ルールが防ぐのは利用者同士のアクセスです。Firebase プロジェクトの管理者は、コンソールから Firestore の全データを閲覧できます。
 - 試合データ（`*.xlsx`、`src/sample-data.json`）と分析結果（`analysis/results.txt`）は `.gitignore` で除外しています。
 
 ## 主な画面
@@ -32,7 +35,7 @@ GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestor
 
 試合の選択は元のデータを残したまま適用され、全タブ・保存・比較・Excel 保存に反映されます。選択内容はクラウドのデータと保存した分析にも記録されます。
 
-保存した分析は Firestore の `users/<uid>/analyses/` に入り、データ本体と同じセキュリティルールで本人だけが読み書きできます。
+保存した分析は Firestore の `users/<uid>/analyses/` に入り、データ本体と同じく本人だけが読み書きできます。
 
 ## 初回セットアップ
 
@@ -43,23 +46,23 @@ GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestor
 5. **プロジェクトの設定** → マイアプリ → **ウェブアプリを追加**（Hosting の `/__/firebase/init.js` がこの設定を配信する）。
 5-1. [Google Cloud コンソールの認証情報](https://console.cloud.google.com/apis/credentials) で「Web client (auto created by Google Service)」を開き、**承認済みのリダイレクト URI** に `https://<プロジェクトID>.web.app/__/auth/handler` を追加する。アプリはログイン処理を開いているドメイン上で行う（スマホのブラウザが別ドメインのストレージを遮断し、ログインが「missing initial state」で失敗するのを防ぐため）ので、そのドメインのハンドラ URI が必要です。独自ドメインを使う場合はそのドメインの URI も追加します。
 6. [Google Cloud コンソールの IAM](https://console.cloud.google.com/iam-admin/serviceaccounts) でデプロイ用のサービスアカウントを作り、ロール **Firebase 管理者**（`roles/firebase.admin`）を付けて、JSON キーを発行する。
-7. GitHub のリポジトリ → Settings → Secrets and variables → Actions に、次の 3 つを登録する。
+7. GitHub のリポジトリ → Settings → Secrets and variables → Actions に、次の 2 つを登録する。
 
    | 名前 | 値 |
    | --- | --- |
    | `FIREBASE_PROJECT_ID` | Firebase のプロジェクト ID |
    | `FIREBASE_SERVICE_ACCOUNT` | 手順 6 の JSON キーの中身すべて |
-   | `ALLOWED_EMAIL` | アクセスを許可する Google アカウントのメールアドレス |
 
-8. `main` に反映する（または Actions タブから「Match Lens — test and deploy」を手動実行する）。
-9. `https://<プロジェクトID>.web.app` を開き、許可したアカウントでログインして、データ取込からチームスタッツの Excel を読み込む。データは Firestore に保存され、次回から自動で表示されます。
+8. 自分以外も使う場合は、[Google Cloud コンソールの OAuth 同意画面](https://console.cloud.google.com/auth/audience)で公開ステータスを「本番環境」にする（「テスト」のままだと、テストユーザーに登録したアカウントしかログインできません）。
+9. `main` に反映する（または Actions タブから「Match Lens — test and deploy」を手動実行する）。
+10. `https://<プロジェクトID>.web.app` を開き、Google アカウントでログインして、データ取込からチームスタッツの Excel を読み込む。データはそのアカウントの領域に保存され、次回から自動で表示されます。
 
 ## 開発
 
 ```bash
 npm ci
 npm run test:rules                               # セキュリティルールのテスト（Java が必要）
-ALLOWED_EMAIL=you@example.com python3 build.py --firebase   # build/ に配信物とルールを生成
+python3 build.py --firebase                      # build/ に配信物とルールを生成
 python3 build.py --sample src/sample-data.json   # データ同梱の単体版 index.html（Git には入れない）
 ```
 

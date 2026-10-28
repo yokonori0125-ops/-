@@ -2,32 +2,45 @@
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'node:fs';
 
-const OWNER = 'owner@example.com';
-const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8').replaceAll('__ALLOWED_EMAIL__', OWNER);
+const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
 const env = await initializeTestEnvironment({ projectId: 'demo-match-lens', firestore: { rules, host: '127.0.0.1', port: 8085 } });
 
-const owner = env.authenticatedContext('uid-owner', { email: OWNER, email_verified: true }).firestore();
-const other = env.authenticatedContext('uid-other', { email: 'someone@example.com', email_verified: true }).firestore();
-const unverified = env.authenticatedContext('uid-owner', { email: OWNER, email_verified: false }).firestore();
+const google = { sign_in_provider: 'google.com' };
+const userA = env.authenticatedContext('uid-a', { email: 'a@example.com', email_verified: true, firebase: google }).firestore();
+const userB = env.authenticatedContext('uid-b', { email: 'b@example.com', email_verified: true, firebase: google }).firestore();
+const unverified = env.authenticatedContext('uid-c', { email: 'c@example.com', email_verified: false, firebase: google }).firestore();
+const password = env.authenticatedContext('uid-d', { email: 'd@example.com', email_verified: true, firebase: { sign_in_provider: 'password' } }).firestore();
 const anon = env.unauthenticatedContext().firestore();
-const mine = 'users/uid-owner/datasets/current';
+const dataA = 'users/uid-a/datasets/current';
+const sheet = { aoa: '[]', fileName: 'x.xlsx' };
 
 const cases = [
-  ['本人は自分のデータを書ける', () => owner.doc(mine).set({ aoa: '[]' }), true],
-  ['本人は自分のデータを読める', () => owner.doc(mine).get(), true],
-  ['他のアカウントは本人のデータを読めない', () => other.doc(mine).get(), false],
-  ['他のアカウントは自分の領域も読めない', () => other.doc('users/uid-other/datasets/current').get(), false],
-  ['他のアカウントは自分の領域にも書けない', () => other.doc('users/uid-other/datasets/current').set({ aoa: '[]' }), false],
-  ['未ログインでは読めない', () => anon.doc(mine).get(), false],
-  ['メール未確認のアカウントは読めない', () => unverified.doc(mine).get(), false],
-  ['本人は保存した分析を書ける', () => owner.doc('users/uid-owner/analyses/a1').set({ name: 'x', aoa: '[]' }), true],
-  ['本人は保存した分析の一覧を読める', () => owner.collection('users/uid-owner/analyses').get(), true],
-  ['他のアカウントは保存した分析を読めない', () => other.collection('users/uid-owner/analyses').get(), false],
-  ['他のアカウントは保存した分析を削除できない', () => other.doc('users/uid-owner/analyses/a1').delete(), false],
-  ['本人は表示設定を保存できる', () => owner.doc('users/uid-owner/settings/display').set({ bg: '#ffffff', pattern: 'dots' }), true],
-  ['他のアカウントは表示設定を読めない', () => other.doc('users/uid-owner/settings/display').get(), false],
-  ['本人でも他の uid の領域には書けない', () => owner.doc('users/uid-other/datasets/current').set({ aoa: '[]' }), false],
-  ['本人でも決められた場所以外には書けない', () => owner.doc('public/x').set({ a: 1 }), false],
+  // 各利用者は自分の領域を使える
+  ['利用者Aは自分のデータを書ける', () => userA.doc(dataA).set(sheet), true],
+  ['利用者Aは自分のデータを読める', () => userA.doc(dataA).get(), true],
+  ['利用者Aは試合の選択だけを更新できる', () => userA.doc(dataA).update({ excluded: ['2026-10-27|x'] }), true],
+  ['利用者Bも自分のデータを書ける', () => userB.doc('users/uid-b/datasets/current').set(sheet), true],
+  ['利用者Aは分析を保存できる', () => userA.doc('users/uid-a/analyses/a1').set({ name: 'x', aoa: '[]' }), true],
+  ['利用者Aは保存した分析の一覧を読める', () => userA.collection('users/uid-a/analyses').get(), true],
+  ['利用者Aは保存した分析を削除できる', () => userA.doc('users/uid-a/analyses/a1').delete(), true],
+  ['利用者Aは表示設定を保存できる', () => userA.doc('users/uid-a/settings/display').set({ bg: '#ffffff', accent: null, pattern: 'dots', strength: 'mid' }), true],
+  // 他の利用者の領域には入れない
+  ['利用者Bは利用者Aのデータを読めない', () => userB.doc(dataA).get(), false],
+  ['利用者Bは利用者Aのデータを書き換えられない', () => userB.doc(dataA).set(sheet), false],
+  ['利用者Bは利用者Aの保存した分析を読めない', () => userB.collection('users/uid-a/analyses').get(), false],
+  ['利用者Bは利用者Aの保存した分析を削除できない', () => userB.doc('users/uid-a/analyses/a1').delete(), false],
+  ['利用者Bは利用者Aの表示設定を読めない', () => userB.doc('users/uid-a/settings/display').get(), false],
+  ['利用者一覧（users）は誰も読めない', () => userA.collection('users').get(), false],
+  // ログインの条件
+  ['未ログインでは読めない', () => anon.doc(dataA).get(), false],
+  ['メール未確認のアカウントは使えない', () => unverified.doc('users/uid-c/datasets/current').set(sheet), false],
+  ['Google 以外のログインは使えない', () => password.doc('users/uid-d/datasets/current').set(sheet), false],
+  // 保存できる内容の制限
+  ['決められた場所以外には書けない', () => userA.doc('users/uid-a/other/x').set({ a: 1 }), false],
+  ['最上位の場所には書けない', () => userA.doc('public/x').set({ a: 1 }), false],
+  ['大きすぎるシートは保存できない', () => userA.doc('users/uid-a/analyses/big').set({ aoa: 'x'.repeat(960000) }), false],
+  ['シートのないデータは保存できない', () => userA.doc('users/uid-a/datasets/current').set({ fileName: 'x' }), false],
+  ['表示設定に余計な項目は保存できない', () => userA.doc('users/uid-a/settings/display').set({ bg: '#fff', script: 'x' }), false],
 ];
 let failed = 0;
 for (const [label, run, ok] of cases) {
