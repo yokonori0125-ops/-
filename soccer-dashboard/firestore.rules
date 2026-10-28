@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// __ALLOWED_EMAIL__ はデプロイ時に GitHub のシークレット ALLOWED_EMAIL で置き換わる（build.py --firebase）
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == '__ALLOWED_EMAIL__';
+    }
+
+    // 許可アカウント本人の領域だけを読み書きできる
+    match /users/{uid}/{document=**} {
+      allow read, write: if isOwner() && request.auth.uid == uid;
+    }
+
+    // それ以外のパスは規定どおりすべて拒否
+  }
+}
