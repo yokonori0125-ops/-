@@ -5,18 +5,25 @@ GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestor
 
 ## アクセスとプライバシーの仕組み
 
-Google アカウントでログインすれば誰でも利用でき、データはアカウントごとに分けて保存されます。
+招待制です。Google アカウントを持っていて、管理者から招待リンクを受け取った人が参加できます。データはアカウントごとに分けて保存されます。
 
 | 層 | 誰が見られるか | 中身 |
 | --- | --- | --- |
-| Firebase Hosting | URL を知っている人（ログイン画面のみ） | アプリのコード。試合データは含まない |
-| Firebase Authentication | Google アカウントでログインした人 | ログイン情報のみ |
-| Firestore `users/<uid>/` | **その uid のアカウント本人だけ** | 本人が取り込んだデータ、保存した分析、表示設定 |
+| Firebase Hosting | URL を知っている人（ログイン画面のみ） | アプリのコード。試合データ・管理者のメールアドレスは含まない |
+| Firestore `users/<uid>/` | **その uid のアカウント本人だけ**（管理者からも見えない） | 本人が取り込んだデータ、保存した分析、表示設定 |
+| Firestore `members/` | 本人（自分の 1 件）と管理者 | 参加者のメールアドレス、参加日、使った招待リンク |
+| Firestore `invites/` | 管理者（一覧）。リンクを知っている人は 1 件だけ | 招待リンクのメモ、宛先、有効期限、人数 |
 
-- Firestore のセキュリティルール（`firestore.rules`）は、Google でログインし、メールアドレスが確認済みで、uid がパスの `<uid>` と一致する場合だけ読み書きを許可します。ほかの利用者の領域、利用者の一覧、決められた場所（`datasets` `analyses` `settings`）以外への読み書きはすべて拒否されます。
-- 1 件あたりのシートの大きさ（約 950KB 未満）と表示設定の項目もルールで制限しています。
-- ルールは `npm run test:rules`（Firestore エミュレーター）で検証し、CI でデプロイ前に毎回実行します。
-- ルールが防ぐのは利用者同士のアクセスです。Firebase プロジェクトの管理者は、コンソールから Firestore の全データを閲覧できます。
+- **管理者**：GitHub のシークレット `ALLOWED_EMAIL` のアカウント。デプロイ時にセキュリティルールにだけ埋め込み、リポジトリとアプリ本体には入れません。初回ログイン時に管理者として登録され、「メンバー」タブが表示されます。
+- **招待リンク**：「メンバー」タブで作ります。ID は推測できない 128 ビットの乱数で、URL は `https://<プロジェクトID>.web.app/?invite=<ID>` です。
+  - 有効期限（24 時間・7 日・30 日）と参加できる人数（1・5・10・50 人）を指定できます。
+  - 宛先の Google アカウントを指定すると、そのアカウントだけが使えます。
+  - 参加するとメンバー登録と使用回数 +1 を 1 回の書き込みで行い、ルールが期限・人数・取り消し・宛先を確かめます。
+  - 招待リンクを開くと、アプリはすぐに URL から ID を消し、ログインが終わるまでそのタブにだけ保持します。
+- **取り消し・利用停止**：招待リンクは取り消せます（参加済みの人はそのまま）。メンバーの利用を停止すると、その人は自分のデータも読めなくなります（データは消えず、もう一度招待すると再開できます）。
+- **ルールで拒否するもの**：招待されていないアカウント、ほかの利用者の領域、利用者の一覧、未ログイン、メール未確認、Google 以外のログイン、決められた場所以外への読み書き、約 950KB 以上のシート、余計な項目を含む表示設定。
+- ルールは `npm run test:rules`（Firestore エミュレーター、56 件）で検証し、CI でデプロイ前に毎回実行します。
+- ルールが防ぐのは利用者同士のアクセスです。Firebase プロジェクトのオーナーは、コンソールから Firestore の全データを閲覧できます。
 - 試合データ（`*.xlsx`、`src/sample-data.json`）と分析結果（`analysis/results.txt`）は `.gitignore` で除外しています。
 
 ## 主な画面
@@ -46,23 +53,25 @@ Google アカウントでログインすれば誰でも利用でき、データ�
 5. **プロジェクトの設定** → マイアプリ → **ウェブアプリを追加**（Hosting の `/__/firebase/init.js` がこの設定を配信する）。
 5-1. [Google Cloud コンソールの認証情報](https://console.cloud.google.com/apis/credentials) で「Web client (auto created by Google Service)」を開き、**承認済みのリダイレクト URI** に `https://<プロジェクトID>.web.app/__/auth/handler` を追加する。アプリはログイン処理を開いているドメイン上で行う（スマホのブラウザが別ドメインのストレージを遮断し、ログインが「missing initial state」で失敗するのを防ぐため）ので、そのドメインのハンドラ URI が必要です。独自ドメインを使う場合はそのドメインの URI も追加します。
 6. [Google Cloud コンソールの IAM](https://console.cloud.google.com/iam-admin/serviceaccounts) でデプロイ用のサービスアカウントを作り、ロール **Firebase 管理者**（`roles/firebase.admin`）を付けて、JSON キーを発行する。
-7. GitHub のリポジトリ → Settings → Secrets and variables → Actions に、次の 2 つを登録する。
+7. GitHub のリポジトリ → Settings → Secrets and variables → Actions に、次の 3 つを登録する。
 
    | 名前 | 値 |
    | --- | --- |
    | `FIREBASE_PROJECT_ID` | Firebase のプロジェクト ID |
    | `FIREBASE_SERVICE_ACCOUNT` | 手順 6 の JSON キーの中身すべて |
+   | `ALLOWED_EMAIL` | 管理者（招待リンクを作れる人）の Google アカウントのメールアドレス |
 
-8. 自分以外も使う場合は、[Google Cloud コンソールの OAuth 同意画面](https://console.cloud.google.com/auth/audience)で公開ステータスを「本番環境」にする（「テスト」のままだと、テストユーザーに登録したアカウントしかログインできません）。
+8. 自分以外を招待する場合は、[Google Cloud コンソールの OAuth 同意画面](https://console.cloud.google.com/auth/audience)で公開ステータスを「本番環境」にする（「テスト」のままだと、テストユーザーに登録したアカウントしかログインできません）。
 9. `main` に反映する（または Actions タブから「Match Lens — test and deploy」を手動実行する）。
-10. `https://<プロジェクトID>.web.app` を開き、Google アカウントでログインして、データ取込からチームスタッツの Excel を読み込む。データはそのアカウントの領域に保存され、次回から自動で表示されます。
+10. `https://<プロジェクトID>.web.app` を開き、管理者のアカウントでログインして、データ取込からチームスタッツの Excel を読み込む。データはそのアカウントの領域に保存され、次回から自動で表示されます。
+11. ほかの人を招待するときは、「メンバー」タブで招待リンクを作り、コピーして本人に送る。
 
 ## 開発
 
 ```bash
 npm ci
 npm run test:rules                               # セキュリティルールのテスト（Java が必要）
-python3 build.py --firebase                      # build/ に配信物とルールを生成
+ADMIN_EMAIL=you@example.com python3 build.py --firebase   # build/ に配信物とルールを生成
 python3 build.py --sample src/sample-data.json   # データ同梱の単体版 index.html（Git には入れない）
 ```
 

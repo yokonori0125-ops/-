@@ -54,6 +54,8 @@ jobs:
           cache-dependency-path: soccer-dashboard/package-lock.json
       - run: npm ci
       - name: Build (no data in the bundle)
+        env:
+          ADMIN_EMAIL: ${{ secrets.ALLOWED_EMAIL }}
         run: python3 build.py --firebase
       - name: Deploy hosting and Firestore rules
         env:

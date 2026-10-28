@@ -1,14 +1,23 @@
 rules_version = '2';
 
-// Google アカウントでログインした人は、自分の領域（users/<自分の uid>/）だけを読み書きできる。
-// 他の利用者の領域、決められた場所以外、未ログイン、Google 以外のログインはすべて拒否。
+// 招待制。Google でログインし、メールアドレスが確認済みの「管理者」か「招待リンクで参加したメンバー」だけが使える。
+// 各自のデータは users/<自分の uid>/ にだけ読み書きでき、管理者を含むほかの利用者からは読めない。
+// 管理者のメールアドレスはリポジトリに書かず、デプロイ時に __ADMIN_EMAIL__ へ埋め込む（build.py）。
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedInAs(uid) {
+    function google() {
       return request.auth != null
-        && request.auth.uid == uid
         && request.auth.token.email_verified == true
         && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function isAdmin() {
+      return google() && request.auth.token.email.lower() == '__ADMIN_EMAIL__';
+    }
+    function memberPath(uid) { return /databases/$(database)/documents/members/$(uid); }
+    function invitePath(token) { return /databases/$(database)/documents/invites/$(token); }
+    // 自分の領域を使えるのは、管理者か、メンバー登録のある本人だけ
+    function canUse(uid) {
+      return google() && request.auth.uid == uid && (isAdmin() || exists(memberPath(uid)));
     }
     // 1 件あたりのシートの大きさの上限（Firestore の 1 文書の上限 1MiB 未満）
     function sheetWithinLimit() {
@@ -17,19 +26,81 @@ service cloud.firestore {
 
     // 取り込んだデータ（現在のデータ）
     match /users/{uid}/datasets/{docId} {
-      allow read, delete: if signedInAs(uid);
-      allow create, update: if signedInAs(uid) && sheetWithinLimit();
+      allow read, delete: if canUse(uid);
+      allow create, update: if canUse(uid) && sheetWithinLimit();
     }
     // 保存した分析
     match /users/{uid}/analyses/{docId} {
-      allow read, delete: if signedInAs(uid);
-      allow create, update: if signedInAs(uid) && sheetWithinLimit();
+      allow read, delete: if canUse(uid);
+      allow create, update: if canUse(uid) && sheetWithinLimit();
     }
     // 表示設定
     match /users/{uid}/settings/{docId} {
-      allow read, delete: if signedInAs(uid);
-      allow create, update: if signedInAs(uid)
+      allow read, delete: if canUse(uid);
+      allow create, update: if canUse(uid)
         && request.resource.data.keys().hasOnly(['bg', 'accent', 'pattern', 'strength']);
+    }
+
+    // メンバー：読めるのは本人と管理者。作れるのは「管理者本人の登録」か「招待リンクの利用」だけ。
+    // 書き換えはできず、利用の停止（削除）は管理者だけ
+    function adminJoins() {
+      return isAdmin()
+        && request.resource.data.keys().hasOnly(['role', 'email', 'joinedAt'])
+        && request.resource.data.role == 'admin';
+    }
+    // 招待リンクで参加する：招待が有効で、同じ書き込みの中で使用回数をちょうど 1 増やしていること
+    function joinsByInvite() {
+      let d = request.resource.data;
+      let inv = get(invitePath(d.invite)).data;
+      return d.keys().hasOnly(['role', 'email', 'invite', 'joinedAt'])
+        && d.role == 'member'
+        && inv.revoked == false
+        && request.time < inv.expiresAt
+        && inv.uses < inv.maxUses
+        && (inv.email == null || inv.email == request.auth.token.email.lower())
+        && getAfter(invitePath(d.invite)).data.uses == inv.uses + 1;
+    }
+    match /members/{uid} {
+      allow get: if google() && (request.auth.uid == uid || isAdmin());
+      allow list, delete: if isAdmin();
+      allow create: if google() && request.auth.uid == uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.joinedAt == request.time
+        && (adminJoins() || (request.resource.data.invite is string && joinsByInvite()));
+    }
+
+    // 招待リンク：ID は推測できない乱数（128 ビット）で、ID を知っている人だけが 1 件読める。
+    // 一覧・作成・取り消し・削除は管理者だけ。招待を使う人にできるのは、
+    // 自分のメンバー登録と同時に使用回数を 1 増やすことだけ
+    function validNewInvite(token) {
+      let d = request.resource.data;
+      return token.matches('[A-Za-z0-9_-]{22,64}')
+        && d.keys().hasAll(['label', 'email', 'maxUses', 'uses', 'expiresAt', 'revoked', 'createdAt'])
+        && d.keys().hasOnly(['label', 'email', 'maxUses', 'uses', 'expiresAt', 'revoked', 'createdAt'])
+        && d.label is string && d.label.size() <= 80
+        && (d.email == null || (d.email is string && d.email.size() <= 254 && d.email == d.email.lower()))
+        && d.maxUses is int && d.maxUses >= 1 && d.maxUses <= 50
+        && d.uses == 0 && d.revoked == false
+        && d.createdAt == request.time
+        && d.expiresAt is timestamp
+        && d.expiresAt > request.time
+        && d.expiresAt < request.time + duration.value(32, 'd');
+    }
+    function redeems(token) {
+      return google()
+        && !exists(memberPath(request.auth.uid))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uses'])
+        && request.resource.data.uses == resource.data.uses + 1
+        && getAfter(memberPath(request.auth.uid)).data.invite == token;
+    }
+    match /invites/{token} {
+      allow get: if google();
+      allow list, delete: if isAdmin();
+      allow create: if isAdmin() && validNewInvite(token);
+      allow update: if (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked'])
+          && request.resource.data.revoked == true)
+        || redeems(token);
     }
   }
 }
