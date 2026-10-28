@@ -55,7 +55,7 @@ jobs:
       - run: npm ci
       - name: Build (no data in the bundle)
         env:
-          ALLOWED_EMAIL: ${{ secrets.ALLOWED_EMAIL }}
+          ADMIN_EMAIL: ${{ secrets.ALLOWED_EMAIL }}
         run: python3 build.py --firebase
       - name: Deploy hosting and Firestore rules
         env:

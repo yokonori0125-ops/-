@@ -1,9 +1,9 @@
 """Match Lens のビルド
 
   python3 build.py --sample src/sample-data.json   → index.html（サンプルデータ同梱の単体版。データを含むため Git に入れない）
-  ALLOWED_EMAIL=you@example.com python3 build.py --firebase
+  ADMIN_EMAIL=you@example.com python3 build.py --firebase
                                                     → build/public/index.html（データを含まない Firebase 版）
-                                                      build/firestore.rules（許可アカウントを埋め込んだルール）
+                                                      build/firestore.rules（管理者のメールアドレスを埋め込んだ招待制のルール）
 """
 import argparse, json, os, pathlib, re, sys
 
@@ -28,9 +28,10 @@ def build_sample(data_path):
 
 
 def build_firebase():
-    email = os.environ.get('ALLOWED_EMAIL', '').strip()
-    if not re.fullmatch(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", email):
-        sys.exit('ALLOWED_EMAIL に、アクセスを許可する Google アカウントのメールアドレスを設定してください。')
+    # 管理者（招待リンクを発行できる人）。リポジトリには書かず、ルールにだけ埋め込む（アプリ本体には入れない）
+    email = os.environ.get('ADMIN_EMAIL', '').strip().lower()
+    if not re.fullmatch(r"[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}", email):
+        sys.exit('ADMIN_EMAIL に、管理者の Google アカウントのメールアドレスを設定してください。')
     src = template().replace('__HEAD_EXTRA__', FIREBASE_HEAD).replace('__DATA__', 'null')
     head, body = src.split('<header class="nav">', 1)
     html = ('<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n'
@@ -41,7 +42,7 @@ def build_firebase():
     out.mkdir(parents=True, exist_ok=True)
     (out / 'index.html').write_text(html, encoding='utf-8')
     (out / 'robots.txt').write_text('User-agent: *\nDisallow: /\n', encoding='utf-8')
-    rules = (ROOT / 'firestore.rules').read_text(encoding='utf-8').replace('__ALLOWED_EMAIL__', email)
+    rules = (ROOT / 'firestore.rules').read_text(encoding='utf-8').replace('__ADMIN_EMAIL__', email)
     (ROOT / 'build/firestore.rules').write_text(rules, encoding='utf-8')
     print('wrote', out / 'index.html', len(html), 'bytes, and build/firestore.rules')
 
