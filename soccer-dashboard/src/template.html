@@ -61,18 +61,40 @@ h3 { font-size: 14px; font-weight: 700; }
 button, select, input { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--own); outline-offset: 2px; }
 
-/* Navigation */
-.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--nav); color: var(--nav-fg);
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.nav-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 20px; min-height: 56px; flex-wrap: wrap; }
-.brand { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; }
+/* Navigation：PC は左のサイドバー、スマホ幅は上のバー＋左から引き出すメニュー */
+:root { --side-w: 220px; --nav-sel: color-mix(in oklab, var(--nav-fg) 12%, var(--nav)); }   /* --nav-sel は applyDisplay が計算し直す */
+.nav { position: fixed; z-index: 5; top: 0; bottom: 0; left: 0; width: var(--side-w); box-sizing: border-box; background: var(--nav); color: var(--nav-fg);
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 12px calc(16px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 18px; overflow-y: auto; overscroll-behavior: contain; }
+.nav-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px; }
+.brand { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; line-height: 1.25; }
 .brand small { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--nav-muted); letter-spacing: 0; }
-.tabs { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; }
-.tabs a { color: var(--nav-muted); text-decoration: none; padding: 16px 12px 14px; font-weight: 500; font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; }
-.tabs a:hover { color: var(--nav-fg); }
-.tabs a[aria-current="page"] { color: var(--nav-fg); border-bottom-color: var(--nav-fg); }
-
-main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+.menu-btn { display: none; align-items: center; gap: 6px; border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
+.menu-btn svg { width: 14px; height: 14px; }
+.nav-body { flex: 1; display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+.drawer-head { display: none; align-items: center; justify-content: space-between; padding: 0 8px; font-weight: 700; }
+.menu-close { border: 0; background: transparent; color: var(--nav-fg); font-size: 24px; line-height: 1; cursor: pointer; padding: 4px 8px; }
+.tabs { display: flex; flex-direction: column; gap: 2px; }
+.tabs a { color: var(--nav-muted); text-decoration: none; padding: 9px 12px; border-radius: 8px; border-left: 3px solid transparent; font-weight: 500; font-size: 14px; }
+.tabs a:hover { color: var(--nav-fg); background: var(--nav-sel); }
+.tabs a[aria-current="page"] { color: var(--nav-fg); font-weight: 700; border-left-color: var(--nav-fg); background: var(--nav-sel); }
+.nav-foot { margin-top: auto; display: grid; justify-items: start; gap: 12px; padding: 0 8px; }
+.nav-scrim { display: none; }
+main { margin-left: var(--side-w); padding-left: 24px; padding-right: max(24px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+@media (max-width: 900px) {
+  .nav { position: sticky; top: env(safe-area-inset-top, 0px); bottom: auto; width: auto; display: block; overflow: visible;
+    padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
+  .nav-top { min-height: 56px; padding: 0; }
+  .brand { flex-direction: row; align-items: baseline; gap: 10px; min-width: 0; }
+  .menu-btn { display: inline-flex; }
+  .nav-body { position: fixed; z-index: 2; top: 0; bottom: 0; left: 0; width: min(280px, 84vw); box-sizing: border-box; background: var(--nav); overflow-y: auto; overscroll-behavior: contain;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(16px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+    transform: translateX(-100%); visibility: hidden; transition: transform .2s ease, visibility .2s; box-shadow: 0 0 32px rgba(0, 0, 0, .3); }
+  .drawer-head { display: flex; }
+  .nav.open .nav-body { transform: none; visibility: visible; transition: transform .2s ease, visibility 0s; }   /* 開くときはすぐ表示（フォーカスを移せるように）、閉じるときは滑り終えてから隠す */
+  .nav.open .nav-scrim { display: block; position: fixed; inset: 0; z-index: 1; background: rgba(0, 0, 0, .45); }
+  main { margin-left: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
 .wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -299,11 +321,11 @@ table.kv-wide td { white-space: normal; min-width: 160px; vertical-align: top; }
 .import-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
 ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 /* Display settings panel */
-.nav { position: sticky; }
-.nav-btn { order: 4; border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
+.nav-btn { border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
 .nav-btn[aria-expanded="true"] { background: var(--nav-fg); color: var(--nav); }
-.display-panel { position: absolute; top: 100%; right: max(16px, env(safe-area-inset-right, 0px)); width: min(440px, calc(100vw - 32px)); overflow-y: auto; overscroll-behavior: contain;
+.display-panel { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: calc(var(--side-w) + 12px); width: min(440px, calc(100vw - var(--side-w) - 24px)); max-height: calc(100vh - 32px); box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain;
   background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(0, 0, 0, .18); padding: 16px 18px; display: grid; gap: 14px; }
+@media (max-width: 900px) { .display-panel { position: absolute; top: 100%; bottom: auto; left: auto; right: max(16px, env(safe-area-inset-right, 0px)); width: min(440px, calc(100vw - 32px)); max-height: none; } }
 .dp-head { display: flex; justify-content: space-between; align-items: center; }
 .dp-close { border: 0; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--fg-2); }
 .dp-sec { display: grid; gap: 8px; }
@@ -323,7 +345,7 @@ ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 .dp-check { font-size: 13px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); }
 .dp-check p { margin: 4px 0 0; }
 .dp-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.account { order: 3; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--nav-muted); margin-left: 12px; }
+.account { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--nav-muted); overflow-wrap: anywhere; }
 .account button { border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
 .gate { max-width: 520px; margin: 40px auto; }
 .invite-form { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) auto auto auto; gap: 12px; align-items: end; }
@@ -338,9 +360,13 @@ ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 </style>
 
 <header class="nav">
-  <div class="nav-inner">
+  <div class="nav-top">
     <div class="brand">Match Lens <small id="brand-team"></small></div>
-    <div class="account" id="account" hidden><span id="acct-email"></span><button type="button" id="signout">ログアウト</button></div>
+    <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav-body"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>メニュー</button>
+  </div>
+  <div class="nav-scrim" id="nav-scrim"></div>
+  <div class="nav-body" id="nav-body">
+    <div class="drawer-head"><span>メニュー</span><button type="button" class="menu-close" id="menu-close" aria-label="メニューを閉じる">×</button></div>
     <nav class="tabs" aria-label="ページ">
       <a href="#overview" data-route="overview">シーズン概要</a>
       <a href="#match-1" data-route="match">試合別</a>
@@ -351,7 +377,10 @@ ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
       <a href="#import" data-route="import">データ取込</a>
       <a href="#members" data-route="members" hidden>メンバー</a>
     </nav>
-    <button type="button" class="nav-btn" id="display-btn" aria-expanded="false" aria-controls="display-panel">表示設定</button>
+    <div class="nav-foot">
+      <div class="account" id="account" hidden><span id="acct-email"></span><button type="button" id="signout">ログアウト</button></div>
+      <button type="button" class="nav-btn" id="display-btn" aria-expanded="false" aria-controls="display-panel">表示設定</button>
+    </div>
   </div>
   <div id="display-panel" class="display-panel" role="dialog" aria-label="表示設定" hidden></div>
 </header>
@@ -2215,7 +2244,12 @@ async function loadCloudDisplay() {
     else resetDisplay();
   } catch (e) { /* 既定の表示のまま */ }
 }
-const DISPLAY_PROPS = ['--bg', '--page-fg', '--page-muted', '--nav', '--nav-fg', '--nav-muted', '--hl', '--btn-bg', '--btn-fg', '--bg-pattern'];
+const DISPLAY_PROPS = ['--bg', '--page-fg', '--page-muted', '--nav', '--nav-fg', '--nav-muted', '--nav-sel', '--hl', '--btn-bg', '--btn-fg', '--bg-pattern'];
+// 選択中のタブの背景：文字色を 12% 混ぜて目立たせる。それで文字のコントラスト比が 4.5 を割る色では、逆に文字色から遠ざける
+function navSelected(nav, fg) {
+  const toward = mixHex(nav, fg, .12);
+  return contrast(fg, toward) >= 4.5 ? toward : mixHex(nav, luminance(fg) > .4 ? '#000000' : '#ffffff', .18);
+}
 function applyDisplay() {
   const s = S.display, root = document.documentElement.style;
   DISPLAY_PROPS.forEach(p => root.removeProperty(p));
@@ -2230,6 +2264,8 @@ function applyDisplay() {
     root.setProperty('--btn-bg', s.accent); root.setProperty('--btn-fg', t);
     root.setProperty('--hl', ensureContrast(s.accent, toHex(T('surface')) || '#ffffff', 3));
   }
+  const nav = s.accent || toHex(T('nav')), navFg = s.accent ? bestText(s.accent) : toHex(T('nav-fg'));
+  if (nav && navFg) root.setProperty('--nav-sel', navSelected(nav, navFg));
   if (s.pattern !== 'none') root.setProperty('--bg-pattern', patternCSS(s.pattern, rgba(bestText(bg), STRENGTHS.find(x => x[0] === s.strength)[2])));
 }
 
@@ -2245,13 +2281,13 @@ function renderDisplayPanel() {
     <div class="dp-head"><h2>表示設定</h2><button type="button" class="dp-close" id="dp-close" aria-label="閉じる">×</button></div>
     <div class="dp-sec"><h3>背景色</h3><div class="dp-swatches">${sw(BG_PRESETS, s.bg, 'bg')}
       <label class="dp-swatch dp-custom" for="dp-bg"><i style="background:${bg}"></i><span>カスタム</span><input type="color" id="dp-bg" value="${bg}"></label></div></div>
-    <div class="dp-sec"><h3>コントラスト色 <span class="muted small">ヘッダー・ボタン・強調</span></h3><div class="dp-swatches">${sw(ACCENT_PRESETS, s.accent, 'accent')}
+    <div class="dp-sec"><h3>コントラスト色 <span class="muted small">メニュー・ボタン・強調</span></h3><div class="dp-swatches">${sw(ACCENT_PRESETS, s.accent, 'accent')}
       <label class="dp-swatch dp-custom" for="dp-accent"><i style="background:${nav}"></i><span>カスタム</span><input type="color" id="dp-accent" value="${nav}"></label></div></div>
     <div class="dp-sec"><h3>背景の柄</h3><div class="dp-patterns">${PATTERNS.map(([k, name]) => `<button type="button" class="dp-pattern" data-pattern="${k}" aria-pressed="${s.pattern === k}">
         <i style="background-color:${bg};background:${k === 'none' ? bg : `${patternCSS(k, ink)}, ${bg}`}"></i><span>${name}</span></button>`).join('')}</div>
       <div class="dp-strength"><span class="muted small">柄の濃さ</span><div class="seg" role="group" aria-label="柄の濃さ">${STRENGTHS.map(([k, name]) => `<button type="button" data-strength="${k}" aria-pressed="${s.strength === k}" ${s.pattern === 'none' ? 'disabled' : ''}>${name}</button>`).join('')}</div></div></div>
     <div class="dp-sec dp-check"><h3>読みやすさ</h3>
-      <div>背景上の文字：${ok(contrast(pageFg, bg), 4.5)}</div><div>ヘッダーの文字：${ok(contrast(navFg, nav), 4.5)}</div>
+      <div>背景上の文字：${ok(contrast(pageFg, bg), 4.5)}</div><div>メニューの文字：${ok(contrast(navFg, nav), 4.5)}</div>
       <p class="muted small">文字色は選んだ色に合わせて自動で切り替えます（基準：WCAG 4.5 : 1 以上）。グラフのチーム色は見分けやすさを保つため固定です。</p></div>
     <div class="dp-actions"><button type="button" class="btn ghost" id="dp-reset">既定に戻す</button>
       <span class="muted small">${CLOUD ? 'アカウントに保存され、他の端末にも反映されます。' : 'このブラウザに保存されます。'}</span></div>`;
@@ -2265,7 +2301,7 @@ function renderDisplayPanel() {
   document.getElementById('dp-reset').addEventListener('click', () => set({ ...DEFAULT_DISPLAY }));
   document.getElementById('dp-close').addEventListener('click', () => toggleDisplayPanel(false));
 }
-// ヘッダーの高さは画面幅で変わるため、パネルが画面内に収まるよう残りの高さを毎回計算する
+// パネルの位置は画面幅で変わる（PC はサイドバーの右、スマホ幅は上のバーの下）ため、画面内に収まるよう残りの高さを毎回計算する
 function fitDisplayPanel() {
   const panel = document.getElementById('display-panel');
   if (panel.hidden) return;
@@ -2282,7 +2318,7 @@ function initDisplay() {
   applyDisplay();
   document.getElementById('display-btn').addEventListener('click', () => toggleDisplayPanel());
   window.addEventListener('resize', fitDisplayPanel);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('display-panel').hidden) { toggleDisplayPanel(false); document.getElementById('display-btn').focus(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('display-panel').hidden) { toggleDisplayPanel(false); document.getElementById(NARROW.matches ? 'menu-btn' : 'display-btn').focus(); } });
   document.addEventListener('click', e => {
     const panel = document.getElementById('display-panel');
     if (!e.target.isConnected) return;   // 描き直しで外れた要素のクリックは無視
@@ -2311,6 +2347,28 @@ function route() {
 // フォントの読み込み後は、ページ全体を作り直さず、グラフの文字の寸法だけ測り直す
 function refreshCharts() { charts.forEach(c => c.update('none')); }
 function rerenderForTheme() { applyDisplay(); rerenderSafe(); }
+
+/* ============ Side menu: phone width slides it out from the left ============ */
+const NARROW = matchMedia('(max-width: 900px)');
+const isMenuOpen = () => document.querySelector('.nav').classList.contains('open');
+function setMenu(open) {
+  const nav = document.querySelector('.nav');
+  open = open && NARROW.matches;
+  nav.classList.toggle('open', open);
+  document.getElementById('menu-btn').setAttribute('aria-expanded', open);
+  document.querySelector('main').inert = open;   // 開いている間は後ろの画面を操作できないようにする
+  if (open) { const a = nav.querySelector('.tabs:not([hidden]) a[aria-current="page"]') || document.getElementById('menu-close'); a.focus(); }
+}
+function initMenu() {
+  const btn = document.getElementById('menu-btn'), closeAndFocus = () => { setMenu(false); btn.focus(); };
+  btn.addEventListener('click', () => { toggleDisplayPanel(false); setMenu(!isMenuOpen()); });
+  document.getElementById('menu-close').addEventListener('click', closeAndFocus);
+  document.getElementById('nav-scrim').addEventListener('click', () => setMenu(false));
+  document.querySelector('.tabs').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
+  document.getElementById('display-btn').addEventListener('click', () => setMenu(false));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && isMenuOpen()) closeAndFocus(); });
+  NARROW.addEventListener('change', () => setMenu(false));
+}
 
 /* ============ Members (Firebase version, admin only): invite links and members ============ */
 const INVITE_DAYS = [[1, '24時間'], [7, '7日'], [30, '30日']];
@@ -2509,6 +2567,7 @@ function startUI() {
 }
 function rerenderSafe() { if (!CLOUD || (cloudUser && S.access)) route(); }
 initDisplay();
+initMenu();
 if (!CLOUD) {
   try { setDataset(SAMPLE_AOA, { source: 'sample', files: ['同梱サンプル'] }); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
   if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(refreshCharts); }
