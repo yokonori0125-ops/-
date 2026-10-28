@@ -20,6 +20,10 @@ const cases = [
   ['他のアカウントは自分の領域にも書けない', () => other.doc('users/uid-other/datasets/current').set({ aoa: '[]' }), false],
   ['未ログインでは読めない', () => anon.doc(mine).get(), false],
   ['メール未確認のアカウントは読めない', () => unverified.doc(mine).get(), false],
+  ['本人は保存した分析を書ける', () => owner.doc('users/uid-owner/analyses/a1').set({ name: 'x', aoa: '[]' }), true],
+  ['本人は保存した分析の一覧を読める', () => owner.collection('users/uid-owner/analyses').get(), true],
+  ['他のアカウントは保存した分析を読めない', () => other.collection('users/uid-owner/analyses').get(), false],
+  ['他のアカウントは保存した分析を削除できない', () => other.doc('users/uid-owner/analyses/a1').delete(), false],
   ['本人でも他の uid の領域には書けない', () => owner.doc('users/uid-other/datasets/current').set({ aoa: '[]' }), false],
   ['本人でも決められた場所以外には書けない', () => owner.doc('public/x').set({ a: 1 }), false],
 ];

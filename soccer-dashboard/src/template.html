@@ -15,6 +15,7 @@
   --pos: #2a78d6; --neg: #e34948;
   --nav: #0f2219; --nav-fg: #e8efe9; --nav-muted: #9db3a5;
   --hl: #6250d6; --bar-strong: #aab2ac; --bar-muted: #d3d9d4;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4; --c6: #008300;
   --font-display: "Barlow Condensed", "Arial Narrow", "Noto Sans JP", sans-serif;
   --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
   --radius: 10px;
@@ -30,6 +31,7 @@
     --pos: #3987e5; --neg: #e66767;
     --nav: #0b1510; --nav-fg: #e8efe9; --nav-muted: #8aa293;
     --hl: #9085e9; --bar-strong: #5f6862; --bar-muted: #3a413c;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300;
     color-scheme: dark;
   }
 }
@@ -43,6 +45,7 @@
   --pos: #3987e5; --neg: #e66767;
   --nav: #0b1510; --nav-fg: #e8efe9; --nav-muted: #8aa293;
   --hl: #9085e9; --bar-strong: #5f6862; --bar-muted: #3a413c;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -229,6 +232,32 @@ select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); b
 .dumbbell .svg-lbl { font-size: 12px; fill: var(--fg-2); }
 .dumbbell .svg-val { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .dumbbell .on { fill: var(--fg); font-weight: 700; }
+/* History & comparison */
+.banner-wrap { max-width: 1200px; margin: 0 auto; }
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 16px; margin-bottom: 16px; border-radius: 8px; border: 1px solid var(--hl); background: color-mix(in oklab, var(--hl) 10%, var(--surface)); font-size: 13px; }
+.save-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: end; }
+@media (max-width: 760px) { .save-form { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; color: var(--fg-2); font-weight: 500; }
+.field input { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn.danger { color: var(--loss); }
+.hist-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.hist-actions a.btn { text-decoration: none; }
+.hist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hist-item { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; }
+.hist-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hist-name { font-weight: 700; }
+.hist-meta { font-size: 12px; color: var(--fg-2); }
+.hist-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.hist-btns .btn { padding: 6px 12px; font-size: 12px; }
+.tsel[aria-pressed="true"] { border-color: var(--hl); color: var(--fg); background: color-mix(in oklab, var(--hl) 12%, var(--surface)); }
+.tchip.cmp { display: inline-flex; align-items: center; gap: 6px; }
+.tchip.cmp[aria-pressed="true"]::before { content: none; }
+.tchip:disabled { opacity: .45; cursor: not-allowed; }
+.lg { display: inline-flex; align-items: center; margin-left: 12px; }
+td.best { font-weight: 700; color: var(--fg); }
+table.kv-wide td { white-space: normal; min-width: 160px; vertical-align: top; }
 .import-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
 ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 .account { order: 3; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--nav-muted); margin-left: 12px; }
@@ -247,11 +276,13 @@ ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
       <a href="#match-1" data-route="match">試合別</a>
       <a href="#trends" data-route="trends">推移比較</a>
       <a href="#analysis" data-route="analysis">要因分析</a>
+      <a href="#history" data-route="history">過去分析</a>
+      <a href="#compare" data-route="compare">チーム比較</a>
       <a href="#import" data-route="import">データ取込</a>
     </nav>
   </div>
 </header>
-<main><div class="wrap" id="app"></div></main>
+<main><div class="banner-wrap"><div id="banner" class="banner" role="status" hidden></div></div><div class="wrap" id="app"></div></main>
 <div class="toast" id="toast" hidden></div>
 
 __HEAD_EXTRA__
@@ -1128,6 +1159,7 @@ async function readFiles(files) {
     const name = fileNames.length === 1 ? fileNames[0] : `${fileNames.length}ファイルを統合`;
     if (CLOUD) await saveCloud(built.aoa, name, fileNames);
     loadData(parsed, CLOUD ? 'cloud' : 'upload', name, built.aoa, fileNames); updateBrand();
+    S.viewing = null; S.prev = null; updateBanner();
     const sm = built.summary, skip = skipped.length ? `（読み込めなかったファイル ${skipped.length}件）` : '';
     toast(append ? `${files.length}ファイルを追加して統合：${prevMatches}試合 → ${parsed.matches.length}試合、指標${sm.metrics}個${skip}`
       : sm ? `${sm.files}ファイルを統合：${sm.matches}試合・指標${sm.metrics}個を整理${skip}`
@@ -1487,6 +1519,212 @@ function renderAnalysis() {
   }
 }
 
+/* ============ Saved analyses (history) and multi-team comparison ============ */
+const LOCAL_KEY = 'matchlens.analyses.v1';
+const CMP_MAX = 6;
+let memStore = null;
+function localList() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); }
+  catch (e) { S.storeVolatile = true; return memStore || (memStore = []); }
+}
+function localWrite(list) {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); }
+  catch (e) { S.storeVolatile = true; memStore = list; }
+}
+const anaColl = () => firebase.firestore().collection(`users/${cloudUser.uid}/analyses`);
+// 保存先：Firebase 版は本人専用の Firestore、単体版はこのブラウザ
+const Store = {
+  async list() {
+    if (!CLOUD) return localList();
+    const q = await anaColl().orderBy('createdAt', 'desc').get();
+    return q.docs.map(x => { const v = x.data(); return { id: x.id, ...v, createdAt: v.createdAt && v.createdAt.toDate ? v.createdAt.toDate().toISOString() : new Date().toISOString() }; });
+  },
+  async save(rec) {
+    if (CLOUD) return (await anaColl().add({ ...rec, createdAt: firebase.firestore.FieldValue.serverTimestamp() })).id;
+    const list = localList(), id = Date.now().toString(36);
+    list.unshift({ id, ...rec, createdAt: new Date().toISOString() });
+    localWrite(list);
+    return id;
+  },
+  async remove(id) {
+    if (CLOUD) return anaColl().doc(id).delete();
+    localWrite(localList().filter(r => r.id !== id));
+  },
+};
+
+function recordOf(d) {
+  const ms = d.matches;
+  return { n: ms.length, W: ms.filter(m => m.result === 'W').length, D: ms.filter(m => m.result === 'D').length, L: ms.filter(m => m.result === 'L').length,
+    GF: ms.reduce((s, m) => s + m.gf, 0), GA: ms.reduce((s, m) => s + m.ga, 0), from: ms[0].date, to: ms.at(-1).date };
+}
+// 要因分析の要点（保存時に計算して残す）
+function analysisDigest() {
+  const A = runAnalysis();
+  return { n: A.n, hasStrength: A.hasStrength, strong: [...S.strong], r2: A.gx ? A.gx.r2 : null, conds: A.conds.length,
+    sig: A.sig.map(c => ({ target: c.tl, adj: c.adj, model: c.top[0].names.join(' ＋ '), p: c.pPerm })),
+    keep: A.hasStrength ? A.ind.filter(o => o.partial.xG != null && o.partial.xG >= A.critP).map(o => o.name) : [],
+    conf: A.hasStrength ? A.ind.filter(o => Math.abs(o.rS) >= .8).map(o => o.name) : [] };
+}
+async function saveCurrent(name, memo) {
+  const d = S.data, r = recordOf(d);
+  const rec = { name: name || `${d.ownTeam}（${r.from}〜${r.to}）`, memo: memo || '', ownTeam: d.ownTeam, ...r,
+    files: S.files || [], aoa: JSON.stringify(S.aoa), analysis: analysisDigest() };
+  if (rec.aoa.length > 900000) throw new Error('データが大きすぎて保存できません（上限 約900KB）。');
+  await Store.save(rec);
+  return rec.name;
+}
+const fmtDate = iso => { const t = new Date(iso); return isNaN(t) ? '' : `${t.getFullYear()}/${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`; };
+
+function updateBanner() {
+  const b = document.getElementById('banner');
+  b.hidden = !S.viewing;
+  if (!S.viewing) return;
+  b.innerHTML = `<span>過去分析「${esc(S.viewing)}」を表示しています。</span><button type="button" class="btn ghost" id="back-current">${S.prev && S.prev.data ? '現在のデータに戻る' : '表示を閉じる'}</button>`;
+  document.getElementById('back-current').addEventListener('click', backToCurrent);
+}
+function openSaved(rec) {
+  if (!S.viewing) S.prev = { data: S.data, aoa: S.aoa, source: S.source, fileName: S.fileName, files: S.files, strong: S.strong };
+  const aoa = JSON.parse(rec.aoa);
+  loadData(parseSheet(aoa), 'history', rec.name, aoa, rec.files);
+  if (rec.analysis && rec.analysis.strong) S.strong = new Set(rec.analysis.strong);
+  S.viewing = rec.name; updateBrand(); updateBanner();
+  toast(`「${rec.name}」を開きました`);
+  location.hash = '#overview'; if (location.hash === '#overview') route();
+}
+function backToCurrent() {
+  const p = S.prev || {};
+  if (p.data) { loadData(p.data, p.source, p.fileName, p.aoa, p.files); S.strong = p.strong; }
+  else { S.data = null; S.aoa = null; S.ana = null; }
+  S.viewing = null; S.prev = null; updateBrand(); updateBanner(); route();
+}
+
+async function renderHistory(msg) {
+  const d = S.data, r = d ? recordOf(d) : null;
+  const where = CLOUD ? 'あなた専用の Firestore に保存します（許可されたアカウント以外は読めません）。' : S.storeVolatile ? 'この環境ではブラウザに保存できないため、タブを閉じると消えます。' : 'このブラウザに保存します（他の端末やブラウザには共有されません）。';
+  app.innerHTML = `
+  <section class="card"><div class="card-head"><h2>現在の分析を保存</h2><p>${where}</p></div>
+    ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
+    ${d ? `<form id="save-form" class="save-form">
+      <div class="field"><label for="save-name">名前</label><input id="save-name" type="text" maxlength="80" placeholder="${esc(`${d.ownTeam}（${r.from}〜${r.to}）`)}"></div>
+      <div class="field"><label for="save-memo">メモ（任意）</label><input id="save-memo" type="text" maxlength="200" placeholder="例：ACL 3試合を追加した版"></div>
+      <button type="submit" class="btn" id="save-btn">保存</button></form>
+      <p class="muted small" style="margin:10px 0 0">保存する内容：${esc(d.ownTeam)}・${r.n}試合（${r.from}〜${r.to}）・${r.W}勝${r.D}分${r.L}敗、統合したデータ一式、要因分析の要点（チーム力区分：${S.strong.size ? [...S.strong].map(esc).join('、') : 'なし'}）。</p>`
+    : '<p class="muted" style="margin:0">保存できるデータがありません。データ取込で Excel を読み込んでください。</p>'}
+  </section>
+  <section class="card"><div class="card-head"><h2>保存した分析</h2><p>開くと全タブがそのデータで再計算されます</p></div><div id="hist-list"><p class="muted">読み込んでいます…</p></div></section>`;
+  const form = document.getElementById('save-form');
+  if (form) form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('save-btn'); btn.disabled = true; btn.textContent = '保存しています…';
+    try { const nm = await saveCurrent(document.getElementById('save-name').value.trim(), document.getElementById('save-memo').value.trim()); renderHistory({ type: 'ok', text: `「${nm}」を保存しました。` }); }
+    catch (err) { renderHistory({ type: 'err', text: `保存できませんでした：${err.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : err.message}` }); }
+  });
+  let list;
+  try { list = await Store.list(); } catch (err) { document.getElementById('hist-list').innerHTML = `<div class="msg err">一覧を読み込めませんでした（${esc(err.code || err.message)}）。</div>`; return; }
+  S.histCache = list;
+  S.cmpSel = new Set([...(S.cmpSel || [])].filter(id => id === 'current' || list.some(x => x.id === id)));
+  const box = document.getElementById('hist-list');
+  if (!box) return;
+  if (!list.length) { box.innerHTML = '<p class="muted" style="margin:0">まだ保存した分析はありません。上のフォームから現在の分析を保存できます。</p>'; return; }
+  box.innerHTML = `<div class="hist-actions"><span class="muted small">比較に選択中：${S.cmpSel.size}件（最大${CMP_MAX}件）</span><a class="btn ghost" href="#compare">選んだ分析を比較する</a></div>
+    <ul class="hist-list">${list.map(x => `<li class="hist-item">
+      <div class="hist-main"><div class="hist-name">${esc(x.name)}</div>
+        <div class="hist-meta">${esc(x.ownTeam)} · ${x.n}試合（${esc(x.from)}〜${esc(x.to)}） · <b>${x.W}勝${x.D}分${x.L}敗</b> · 得点${x.GF} 失点${x.GA}</div>
+        <div class="hist-meta muted">保存 ${fmtDate(x.createdAt)}${x.files && x.files.length ? ` · ファイル${x.files.length}件` : ''}${x.memo ? ` · ${esc(x.memo)}` : ''}</div></div>
+      <div class="hist-btns">
+        <button type="button" class="btn ghost" data-open="${esc(x.id)}">開く</button>
+        <button type="button" class="btn ghost tsel" data-cmp="${esc(x.id)}" aria-pressed="${S.cmpSel.has(x.id)}">比較に${S.cmpSel.has(x.id) ? '選択中' : '追加'}</button>
+        <button type="button" class="btn ghost danger" data-del="${esc(x.id)}">削除</button></div></li>`).join('')}</ul>`;
+  box.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openSaved(list.find(x => x.id === b.dataset.open))));
+  box.querySelectorAll('[data-cmp]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.cmp;
+    if (S.cmpSel.has(id)) S.cmpSel.delete(id); else if (S.cmpSel.size < CMP_MAX) S.cmpSel.add(id); else return toast(`比較できるのは最大${CMP_MAX}件です`);
+    renderHistory();
+  }));
+  box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'もう一度押すと削除'; setTimeout(() => { if (b.isConnected) { b.dataset.armed = ''; b.textContent = '削除'; } }, 4000); return; }
+    try { await Store.remove(b.dataset.del); S.cmpSel.delete(b.dataset.del); renderHistory({ type: 'ok', text: '削除しました。' }); }
+    catch (err) { renderHistory({ type: 'err', text: `削除できませんでした（${err.code || err.message}）。` }); }
+  }));
+}
+
+// 比較する指標（1 試合あたり平均。pol: 1 = 高いほど良い, -1 = 低いほど良い, 0 = スタイル指標）
+const CMP_METRICS = [
+  ['得点', (s, o) => get(s, 'ゴール'), 1], ['失点', (s, o) => get(o, 'ゴール'), -1], ['xG', (s, o) => get(s, 'xG'), 1], ['被xG', (s, o) => get(o, 'xG'), -1],
+  ['xG差', (s, o) => get(s, 'xG差'), 1], ['シュート', (s, o) => get(s, 'シュート', '合計'), 1], ['被シュート', (s, o) => get(o, 'シュート', '合計'), -1],
+  ['決定率(%)', (s, o) => get(s, '決定率(%)'), 1], ['シュート1本あたりxG', (s, o) => get(s, 'シュート1本あたりxG'), 1],
+  ['ボール保持率(%)', (s, o) => get(s, 'ボール保持率(%)'), 0], ['パス成功率(%)', (s, o) => get(s, 'パス', '成功率(%)'), 1],
+  ['1/3へのパス成功', (s, o) => get(s, '1/3へのパス', '成功'), 1], ['リカバリー（高）', (s, o) => get(s, 'リカバリー（ゾーン別）', '高'), 1],
+  ['リカバリー（高）比率(%)', (s, o) => get(s, 'リカバリー（高）比率(%)'), 1], ['ボールロス', (s, o) => get(s, 'ボールロス（ゾーン別）', '合計'), -1],
+  ['競り合い勝率(%)', (s, o) => get(s, '競り合い（全体）', '勝率(%)'), 1], ['空中戦の割合(%)', (s, o) => get(s, '空中戦の割合(%)'), 0],
+  ['セットプレー起点シュート比率(%)', (s, o) => get(s, 'セットプレー起点シュート比率(%)'), 0], ['ファウル', (s, o) => get(s, 'ファウル'), -1],
+];
+const polLabel = p => (p > 0 ? '高いほど良い' : p < 0 ? '低いほど良い' : 'スタイル指標');
+const cmpFmt = (v, name) => (v == null ? '–' : /%/.test(name) ? v.toFixed(1) + '%' : /xG/.test(name) ? v.toFixed(2) : v.toFixed(1));
+
+async function renderCompare() {
+  app.innerHTML = '<section class="card"><p class="muted" style="margin:0">読み込んでいます…</p></section>';
+  let list = S.histCache;
+  try { list = await Store.list(); S.histCache = list; } catch (err) { if (!list) { app.innerHTML = `<div class="msg err">保存した分析を読み込めませんでした（${esc(err.code || err.message)}）。</div>`; return; } }
+  S.cmpSel = S.cmpSel || new Set();
+  const opts = [...(S.data ? [{ id: 'current', name: `現在のデータ（${S.data.ownTeam}）`, ownTeam: S.data.ownTeam }] : []), ...list];
+  const sel = opts.filter(x => S.cmpSel.has(x.id));
+  const chips = opts.map(x => { const i = sel.indexOf(x); return `<button type="button" class="tchip cmp" data-id="${esc(x.id)}" aria-pressed="${i >= 0}" ${i < 0 && sel.length >= CMP_MAX ? 'disabled' : ''}>${i >= 0 ? `<i class="sw" style="background:var(--c${i + 1})"></i>` : ''}${esc(x.name)}</button>`; }).join('');
+  const head = `<section class="hero" style="grid-template-columns:1fr"><div><div class="eyebrow">チーム比較</div><h1>分析結果の比較</h1>
+      <div class="meta">保存した分析（と現在のデータ）から2〜${CMP_MAX}件を選んでください。値は1試合あたりの平均です。対戦相手の水準が違う場合は単純比較に注意が必要です。</div></div></section>
+    <section class="card"><div class="card-head"><h2>比較する分析</h2><p>${sel.length}件を選択中</p></div>
+      ${opts.length ? `<div class="team-chips">${chips}</div>` : '<p class="muted" style="margin:0">比較できる分析がありません。「過去分析」タブで分析を保存してください。</p>'}</section>`;
+  if (sel.length < 2) { app.innerHTML = head + (opts.length ? '<section class="card"><p class="muted" style="margin:0">2件以上選ぶと比較を表示します。</p></section>' : ''); bindCmpChips(); return; }
+  // 各分析のデータを集計
+  const ents = sel.map((x, i) => {
+    const d = x.id === 'current' ? S.data : parseSheet(JSON.parse(x.aoa));
+    const vals = CMP_METRICS.map(([name, fn]) => mean(d.matches.map(m => fn(m.own, m.opp))));
+    return { ...x, d, rec: recordOf(d), vals, color: `--c${i + 1}`, analysis: x.id === 'current' ? analysisDigest() : x.analysis };
+  });
+  const rows = CMP_METRICS.map(([name, , pol], k) => ({ name, pol, vals: ents.map(e => e.vals.at(k)) })).filter(r => r.vals.filter(v => v != null).length >= 2);
+  // 最良の値（同値はすべて、全件同値なら判定なし）
+  const bestSet = r => {
+    if (!r.pol) return new Set();
+    const v = r.vals.map(x => (x == null ? null : Math.round(x * r.pol * 1e6) / 1e6)), ok = v.filter(x => x != null), m = Math.max(...ok);
+    return ok.every(x => x === m) ? new Set() : new Set(v.map((x, i) => (x === m ? i : -1)).filter(i => i >= 0));
+  };
+  // 同じチームの分析が複数あるときは分析名で区別する
+  const short = (t, n = 14) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+  const tag = e => '①②③④⑤⑥'.at(ents.indexOf(e));
+  const lab = e => (ents.filter(x => x.d.ownTeam === e.d.ownTeam).length > 1 ? `${tag(e)} ${short(e.d.ownTeam, 11)}` : short(e.d.ownTeam));
+  app.innerHTML = head + `
+  <section class="card"><div class="card-head"><h2>成績</h2></div><div class="tbl-wrap"><table><thead><tr><th class="l">分析</th><th class="l">チーム</th><th>試合</th><th>勝-分-敗</th><th>勝点/試合</th><th>得点</th><th>失点</th><th class="l">期間</th></tr></thead><tbody>
+    ${ents.map(e => `<tr><td class="l"><i class="sw" style="background:var(${e.color})"></i>${tag(e)} ${esc(e.name)}</td><td class="l">${esc(e.d.ownTeam)}</td><td>${e.rec.n}</td><td>${e.rec.W}-${e.rec.D}-${e.rec.L}</td><td>${((e.rec.W * 3 + e.rec.D) / e.rec.n).toFixed(2)}</td><td>${e.rec.GF}</td><td>${e.rec.GA}</td><td class="l">${esc(e.rec.from)}〜${esc(e.rec.to)}</td></tr>`).join('')}
+  </tbody></table></div></section>
+  <section><div class="card-head" style="margin-bottom:10px"><h2>指標ごとの比較（1試合平均）</h2><p>${ents.map(e => `<span class="lg"><i class="sw" style="background:var(${e.color})"></i>${tag(e)} ${esc(e.name)}</span>`).join('')}</p></div>
+    <div class="grid-3">${rows.map((r, k) => `<div class="card"><div class="mini-title"><h3>${esc(r.name)}</h3><span>${polLabel(r.pol)}</span></div><div class="chart-box" style="height:${44 + ents.length * 30}px"><canvas id="cmp-${k}" role="img" aria-label="${esc(r.name)}の比較"></canvas></div></div>`).join('')}</div></section>
+  <section class="card"><div class="card-head"><h2>比較表</h2><p>▲＝最も良い値（スタイル指標は判定なし）</p></div><div class="tbl-wrap"><table><thead><tr><th class="l">指標</th>${ents.map(e => `<th><i class="sw" style="background:var(${e.color})"></i>${esc(lab(e))}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(r => { const b = bestSet(r); return `<tr><td class="l">${esc(r.name)} <span class="muted small">${polLabel(r.pol)}</span></td>${r.vals.map((v, i) => `<td${b.has(i) ? ' class="best"' : ''}>${cmpFmt(v, r.name)}${b.has(i) ? ' ▲' : ''}</td>`).join('')}</tr>`; }).join('')}
+  </tbody></table></div></section>
+  <section class="card"><div class="card-head"><h2>要因分析の比較</h2><p>保存時に計算した要点</p></div><div class="tbl-wrap"><table class="kv-wide"><thead><tr><th class="l">項目</th>${ents.map(e => `<th class="l"><i class="sw" style="background:var(${e.color})"></i>${esc(lab(e))}</th>`).join('')}</tr></thead><tbody>
+    ${[['分析した行数', a => `${a.n}行`], ['得点をxGで説明できる割合', a => (a.r2 == null ? '–' : `${Math.round(a.r2 * 100)}%`)],
+      ['偶然と区別できたモデル', a => (a.sig.length ? a.sig.map(s => `${esc(s.target)}${s.adj ? '（補正）' : ''} ~ ${esc(s.model)}（p = ${s.p.toFixed(3)}）`).join('<br>') : `なし（${a.conds}条件中）`)],
+      ['チーム力補正後もxGと関係が残る指標', a => (a.hasStrength ? (a.keep.length ? a.keep.map(esc).join('、') : 'なし') : 'チーム力未設定')],
+      ['チーム力とほぼ同じ動きをする指標', a => (a.hasStrength ? (a.conf.length ? a.conf.map(esc).join('、') : 'なし') : 'チーム力未設定')],
+      ['チーム力の上位グループ', a => (a.strong.length ? a.strong.map(esc).join('、') : 'なし')]]
+      .map(([lbl, f]) => `<tr><td class="l">${lbl}</td>${ents.map(e => `<td class="l small">${e.analysis ? f(e.analysis) : '–'}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div></section>`;
+  bindCmpChips();
+  rows.forEach((r, k) => {
+    const b = bestSet(r);
+    mk(document.getElementById(`cmp-${k}`), { type: 'bar', data: { labels: ents.map(lab), datasets: [{ label: r.name, data: r.vals, backgroundColor: ents.map(e => T(e.color.slice(2))), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: c => ents.at(c[0].dataIndex).name, label: c => ` ${cmpFmt(c.raw, r.name)}${b.has(c.dataIndex) ? '（最良）' : ''}` } } },
+        scales: { x: { beginAtZero: true, grid: { color: T('grid') }, border: { display: false }, ticks: { maxTicksLimit: 5 } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } } } });
+  });
+}
+function bindCmpChips() {
+  app.querySelectorAll('.tchip.cmp').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.id;
+    if (S.cmpSel.has(id)) S.cmpSel.delete(id); else if (S.cmpSel.size < CMP_MAX) S.cmpSel.add(id);
+    renderCompare();
+  }));
+}
+
 /* ============ Router ============ */
 let toastTimer;
 function toast(t) { const el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200); }
@@ -1497,12 +1735,12 @@ function route() {
   let page = 'overview', no = 1;
   const mm = h.match(/^match-(\d+)$/);
   if (mm) { page = 'match'; no = Math.min(Math.max(1, +mm[1]), S.data ? S.data.matches.length : 1); }
-  else if (h === 'trends' || h === 'import' || h === 'analysis') page = h;
-  if (!S.data) page = 'import';
+  else if (['trends', 'import', 'analysis', 'history', 'compare'].includes(h)) page = h;
+  if (!S.data && !['history', 'compare'].includes(page)) page = 'import';
   document.querySelector('.tabs').hidden = false;
   document.querySelectorAll('.tabs a').forEach(a => { if (a.dataset.route === page) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (page === 'match') document.querySelector('.tabs a[data-route="match"]').setAttribute('href', '#match-' + no);
-  ({ overview: renderOverview, match: () => renderMatch(no), trends: renderTrends, analysis: renderAnalysis, import: () => renderImport() })[page]();
+  ({ overview: renderOverview, match: () => renderMatch(no), trends: renderTrends, analysis: renderAnalysis, history: () => renderHistory(), compare: renderCompare, import: () => renderImport() })[page]();
 }
 function rerenderForTheme() { rerenderSafe(); }
 
@@ -1556,7 +1794,7 @@ if (!CLOUD) {
   renderGate('loading');
   document.getElementById('signout').addEventListener('click', () => firebase.auth().signOut());
   firebase.auth().onAuthStateChanged(async user => {
-    cloudUser = user; S.access = false; S.data = null; S.ana = null; updateBrand();
+    cloudUser = user; S.access = false; S.data = null; S.ana = null; S.viewing = null; S.prev = null; S.histCache = null; S.cmpSel = new Set(); updateBrand(); updateBanner();
     const acct = document.getElementById('account');
     acct.hidden = !user; document.getElementById('acct-email').textContent = user ? user.email || '' : '';
     if (!user) return renderGate('signin');
