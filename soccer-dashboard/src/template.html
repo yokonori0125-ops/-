@@ -229,6 +229,8 @@ select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); b
 .dumbbell .svg-lbl { font-size: 12px; fill: var(--fg-2); }
 .dumbbell .svg-val { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .dumbbell .on { fill: var(--fg); font-weight: 700; }
+.import-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
+ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 .account { order: 3; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--nav-muted); margin-left: 12px; }
 .account button { border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
 .gate { max-width: 520px; margin: 40px auto; }
@@ -349,9 +351,49 @@ function parseSheet(aoa) {
   if (!matches.length) throw new Error('自チームと対戦相手の行を1試合単位で対にできませんでした。「区分」列に「自チーム」「対戦相手」を入れてください。');
 
   const catList = [...new Set(metrics.map(c => c.cat))];
-  return { title: clean((aoa[0] || [])[0]), ownTeam: own0(matches), metrics, catList, matches, notes };
+  const out = { title: clean((aoa[0] || [])[0]), ownTeam: own0(matches), metrics, catList, matches, notes };
+  augmentKpis(out);
+  return out;
 }
 const own0 = ms => ms[0].own.team;
+
+
+/* ============ Cross-file KPIs: computed from the merged metrics ============ */
+// 元データの指標を組み合わせて計算する指標。元の指標と二重に数えないよう、独立した大分類「8」に置く
+const KPI_CAT = '8 算出指標（KPI）';
+const kRound = (v, d) => (v == null || !isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
+const kPct = (a, b) => (a == null || b == null || !b ? null : kRound(a / b * 100, 2));
+const kRatio = (a, b) => (a == null || b == null || !b ? null : kRound(a / b, 3));
+const kDiff = (a, b) => (a == null || b == null ? null : kRound(a - b, 2));
+const kSum = (...v) => (v.some(x => x == null) ? null : v.reduce((s, x) => s + x, 0));
+const KPI_DEFS = [
+  ['8-1 攻撃の効率', '決定率(%)', 'ゴール ÷ シュート', s => kPct(s('ゴール'), s('シュート', '合計'))],
+  ['8-1 攻撃の効率', '枠内シュート決定率(%)', 'ゴール ÷ 枠内シュート', s => kPct(s('ゴール'), s('シュート', '枠内'))],
+  ['8-1 攻撃の効率', 'シュート1本あたりxG', 'xG ÷ シュート', s => kRatio(s('xG'), s('シュート', '合計'))],
+  ['8-1 攻撃の効率', '得点−xG', 'ゴール − xG', s => kDiff(s('ゴール'), s('xG'))],
+  ['8-1 攻撃の効率', '攻撃→シュート到達率(%)', '（ポジショナル＋カウンターのシュートあり）÷（両攻撃の合計）',
+    s => kPct(kSum(s('ポジショナルアタック', 'シュートあり'), s('カウンターアタック', 'シュートあり')), kSum(s('ポジショナルアタック', '合計'), s('カウンターアタック', '合計')))],
+  ['8-1 攻撃の効率', 'セットプレー起点シュート比率(%)', '（CK＋FKのシュートあり）÷ シュート', s => kPct(kSum(s('CK', 'シュートあり'), s('FK', 'シュートあり')), s('シュート', '合計'))],
+  ['8-1 攻撃の効率', '前線へのパス比率(%)', '前線へのパス ÷ パス総数', s => kPct(s('前線へのパス', '合計'), s('パス', '合計'))],
+  ['8-2 守備・奪取', 'リカバリー（高）比率(%)', 'リカバリー（高）÷ リカバリー合計', s => kPct(s('リカバリー（ゾーン別）', '高'), s('リカバリー（ゾーン別）', '合計'))],
+  ['8-2 守備・奪取', 'ボールロス（低）比率(%)', 'ボールロス（低）÷ ボールロス合計', s => kPct(s('ボールロス（ゾーン別）', '低'), s('ボールロス（ゾーン別）', '合計'))],
+  ['8-2 守備・奪取', '被シュート1本あたり被xG', '相手のxG ÷ 相手のシュート', (s, o) => kRatio(o('xG'), o('シュート', '合計') ?? s('被シュート', '合計'))],
+  ['8-3 試合全体', 'xG差', 'xG − 相手のxG', (s, o) => kDiff(s('xG'), o('xG'))],
+  ['8-3 試合全体', '空中戦の割合(%)', '空中競り合い ÷ 競り合い全体', s => kPct(s('空中競り合い', '件数'), s('競り合い（全体）', '件数'))],
+];
+function augmentKpis(d) {
+  if (d.metrics.some(c => c.kpi)) return;
+  const acc = side => (met, sub = '') => (side.vals[K(met, sub)] ?? null);
+  for (const [grp, met, formula, fn] of KPI_DEFS) {
+    const key = K(met, '');
+    if (d.metrics.some(c => c.key === key)) continue;
+    let any = false;
+    for (const m of d.matches) for (const [a, b] of [[m.own, m.opp], [m.opp, m.own]]) { const v = fn(acc(a), acc(b)); a.vals[key] = v; if (v != null) any = true; }
+    if (!any) { d.matches.forEach(m => { delete m.own.vals[key]; delete m.opp.vals[key]; }); continue; }
+    d.metrics.push({ idx: -1, info: false, cat: KPI_CAT, grp, met, sub: '', key, derived: true, kpi: true, formula });
+  }
+  if (d.metrics.some(c => c.kpi) && !d.catList.includes(KPI_CAT)) d.catList.push(KPI_CAT);
+}
 
 /* ============ Auto-MECE: merge raw exports of differing layouts into one sheet ============ */
 // 大分類・小分類・指標・内訳の基準（各指標はいずれか1つの分類にだけ属する）
@@ -463,7 +505,7 @@ function meceSheetAsSource(aoa, file) {
   const d = parseSheet(aoa);
   const rows = d.matches.flatMap(m => [m.own, m.opp].map(s => ({ date: s.date, match: s.name, comp: s.comp, dur: s.dur, team: s.team,
     side: s === m.own ? '自チーム' : '対戦相手', form: s.form, vals: s.vals })));
-  return { kind: 'mece', file, aoa, data: d, cols: d.metrics.map(c => ({ met: c.met, sub: c.sub, cat: c.cat, grp: c.grp })), rows, ownLabel: d.ownTeam, renames: [] };
+  return { kind: 'mece', file, aoa, data: d, cols: d.metrics.filter(c => !c.kpi).map(c => ({ met: c.met, sub: c.sub, cat: c.cat, grp: c.grp })), rows, ownLabel: d.ownTeam, renames: [] };
 }
 
 function sourceFromSheet(aoa, file) {
@@ -483,8 +525,8 @@ function classify(met, srcCat, srcGrp) {
 }
 
 // 複数の元シートを、行（日付・試合・チーム）と列（指標・内訳）で突き合わせて 1 枚の整理済みシートにする
-function buildMece(sources) {
-  const rowMap = new Map(), colMap = new Map(), conflicts = [], files = [...new Set(sources.map(s => s.file))];
+function buildMece(sources, fileNames) {
+  const rowMap = new Map(), colMap = new Map(), conflicts = [], files = fileNames || [...new Set(sources.map(s => s.file))];
   for (const src of sources) {
     for (const c of src.cols) {
       const k = K(c.met, c.sub);
@@ -500,19 +542,18 @@ function buildMece(sources) {
         const k = K(c.met, c.sub), v = r.vals[k];
         if (v == null) continue;
         if (t.vals[k] == null) t.vals[k] = v;
-        else if (Math.abs(t.vals[k] - v) > 1e-6) conflicts.push(`${label(c.met, c.sub)}（${r.date} ${r.team}：${t.vals[k]} / ${src.file}：${v}）`);
+        else if (Math.abs(t.vals[k] - v) > 1e-6) conflicts.push(`${label(c.met, c.sub)}（${r.date} ${r.team}：採用 ${t.vals[k]}、不採用 ${v}［${src.file}］）`);
       }
     }
   }
   const rows = [...rowMap.values()];
-  // 算出値（元データにない場合だけ追加）
+  // 算出値（列がなければ追加し、値が空の行は内訳から計算する）
   const derivedAdded = [];
   for (const [met, sub, tMet, tSub, parts] of DERIVED) {
     const k = K(met, sub), need = [K(tMet, tSub), ...parts.map(p => K(p, tSub))];
-    if (colMap.has(k) || !need.every(n => colMap.has(n))) continue;
-    colMap.set(k, { met, sub, files: new Set(['算出']), seq: colMap.size });
-    rows.forEach(r => { r.vals[k] = need.every(n => r.vals[n] != null) ? parts.reduce((a, p) => a - r.vals[K(p, tSub)], r.vals[K(tMet, tSub)]) : null; });
-    derivedAdded.push(`${met} / ${sub}`);
+    if (!need.every(n => colMap.has(n))) continue;
+    if (!colMap.has(k)) { colMap.set(k, { met, sub, files: new Set(['算出']), seq: colMap.size }); derivedAdded.push(`${met} / ${sub}`); }
+    rows.forEach(r => { if (r.vals[k] == null && need.every(n => r.vals[n] != null)) r.vals[k] = parts.reduce((a, p) => a - r.vals[K(p, tSub)], r.vals[K(tMet, tSub)]); });
   }
   // 自チームの判定：元シートのラベル → 区分列 → 全試合に登場するチーム
   const cnt = {};
@@ -554,9 +595,9 @@ function buildMece(sources) {
   const metCount = new Set(grouped.map(c => c.met)).size;
   const notes = [
     `【自動整理】${files.length}ファイル（${files.join('、')}）を、日付・試合・チームで突き合わせて1シートに統合。${rows.length / 2}試合、指標 ${metCount}個（${grouped.length}列）を${new Set(grouped.map(c => c.cat)).size}つの大分類に整理。`,
-    `【MECE構造】大分類は「${MECE_CATS.join(' / ')}」。各列はいずれか1つの分類にのみ属する。`,
+    `【MECE構造】大分類は「${MECE_CATS.join(' / ')}」。各列はいずれか1つの分類にのみ属する。ファイルをまたいで計算するKPIは、元の指標と二重に数えないよう「${KPI_CAT}」として別に表示する。`,
     dups.length && `【重複の統合】複数ファイルにある同じ指標を1列に統合：${dups.join('、')}。${conflicts.length ? '' : '全行で値が一致。'}`,
-    conflicts.length && `【値の不一致】${conflicts.length}件。先に読み込んだファイルの値を採用：${conflicts.slice(0, 8).join('、')}${conflicts.length > 8 ? ' ほか' : ''}。`,
+    conflicts.length && `【値の不一致】${conflicts.length}件。優先するファイル（追加読み込みでは新しいファイル、同時に読み込んだ場合は先頭のファイル）の値を採用：${conflicts.slice(0, 8).join('、')}${conflicts.length > 8 ? ' ほか' : ''}。`,
     [...new Set(sources.flatMap(s => s.renames))].length && `【名称の補正】${[...new Set(sources.flatMap(s => s.renames))].join('、')}。`,
     derivedAdded.length && `【算出値】内訳の網羅性を確保するため追加：${derivedAdded.join('、')}（総数 − 内訳の和）。`,
     byHow('keyword').length && `【キーワードで分類】基準にない指標を名前から振り分け：${byHow('keyword').join('、')}。`,
@@ -587,7 +628,7 @@ const label = (met, sub) => {
 const fmt = (v, met, sub, digits) => {
   if (v == null || isNaN(v)) return '–';
   if (isPct(met, sub)) return v.toFixed(1) + '%';
-  if (met === 'xG') return v.toFixed(2);
+  if (/xG/.test(met)) return v.toFixed(2);
   if (digits != null) return v.toFixed(digits);
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 };
@@ -596,7 +637,7 @@ const fmtDiff = (d, met, sub) => {
   const s = d > 0 ? '+' : d < 0 ? '−' : '±';
   const a = Math.abs(d);
   if (isPct(met, sub)) return s + a.toFixed(1) + 'pt';
-  if (met === 'xG') return s + a.toFixed(2);
+  if (/xG/.test(met)) return s + a.toFixed(2);
   return s + (Number.isInteger(a) ? a : a.toFixed(1));
 };
 const shortDate = d => { const p = d.split('-'); return p.length === 3 ? `${+p[1]}/${+p[2]}` : d; };
@@ -619,8 +660,8 @@ const keyMetrics = () => KEY_METRICS.filter(([m, s]) => has(m, s));
 
 /* ============ State ============ */
 const S = { data: null, pieSide: 'own', trendKey: K('xG'), showOpp: true, showAvg: true, source: 'sample', fileName: '', strong: new Set(), ana: null };
-function loadData(d, source, fileName, aoa) {
-  S.data = d; S.aoa = aoa || null; S.source = source; S.fileName = fileName || ''; S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
+function loadData(d, source, fileName, aoa, files) {
+  S.data = d; S.aoa = aoa || null; S.source = source; S.fileName = fileName || ''; S.files = files || (fileName ? [fileName] : []); S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
   S.anaCond = 0; S.anaTarget = null; S.strong = new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]).filter(t => STRONG_DEFAULT.includes(t))); S.ana = null;
 }
 
@@ -812,6 +853,8 @@ function renderOverview() {
     ${kpi('平均 xG', 'xG', '', 2)}${kpi('平均 シュート', 'シュート', '合計', 1)}${kpi('平均 ボール保持率', 'ボール保持率(%)', '')}
     ${kpi('平均 パス成功率', 'パス', '成功率(%)')}${kpi('平均 競り合い勝率', '競り合い（全体）', '勝率(%)')}${kpi('平均 リカバリー', 'リカバリー（ゾーン別）', '合計', 1)}
   </section>
+  ${d.metrics.some(c => c.kpi) ? `<section><div class="card-head" style="margin-bottom:10px"><h2>算出KPI（試合平均）</h2><p>元データの指標を組み合わせて計算</p></div>
+    <div class="kpis">${d.metrics.filter(c => c.kpi).map(c => kpi(c.met.replace('(%)', ''), c.met, '', /xG/.test(c.met) ? 2 : 1).replace('<span class="lbl">', `<span class="lbl" title="${esc(c.formula)}">`)).join('')}</div></section>` : ''}
   <section class="card"><div class="card-head"><h2>自動分析サマリー</h2><p>数値データから算出した客観的な所見</p></div>${insightsHTML(seasonInsights())}</section>
   <section class="card"><div class="card-head"><h2>試合結果（時系列）</h2><p>カードを選ぶと試合別ページへ移動</p></div>
     <div class="results">${ms.map(m => `<a class="res" href="#match-${m.no}">
@@ -1005,6 +1048,10 @@ function renderImport(msg) {
   app.innerHTML = `
   <section class="card"><div class="card-head"><h2>データ取込</h2><p>Excel を読み込むと全ページが自動で再計算されます</p></div>
     ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
+    ${d ? `<div class="import-mode"><span class="muted small">読み込み方法</span><div class="seg" role="group" aria-label="読み込み方法">
+      <button type="button" data-mode="replace" aria-pressed="${S.importMode !== 'append'}">置き換える</button>
+      <button type="button" data-mode="append" aria-pressed="${S.importMode === 'append'}">今のデータに追加して統合</button></div>
+      <span class="muted small">${S.importMode === 'append' ? `いまの${d.matches.length}試合に、選んだファイルの試合・指標をつなげます。同じ値が食い違う場合は新しいファイルを優先します。` : '選んだファイルだけで作り直します。'}</span></div>` : ''}
     <div class="drop" id="drop">
       <strong>チームスタッツの Excel をここにドロップ（複数可）</strong>
       <span class="muted">書式の異なる複数ファイルも、指標を自動でMECEに整理して1つに統合します（.xlsx / .xls / .csv）</span>
@@ -1020,6 +1067,7 @@ function renderImport(msg) {
     ${!d ? `<section class="card"><div class="card-head"><h2>現在のデータ</h2></div><p class="muted" style="margin:0">まだデータがありません。チームスタッツの Excel を読み込むと、各ページが表示されます。</p></section>` : `<section class="card"><div class="card-head"><h2>現在のデータ</h2></div>
       <table class="kv"><tbody>
         <tr><td class="l">ソース</td><td>${S.source === 'sample' ? '同梱サンプル' : S.source === 'cloud' ? `${esc(S.fileName)}（クラウドに保存済み）` : esc(S.fileName)}</td></tr>
+        <tr><td class="l">ファイル</td><td>${S.files.length ? `<ol class="files">${S.files.map(f => `<li>${esc(f)}</li>`).join('')}</ol>` : '–'}</td></tr>
         <tr><td class="l">自チーム</td><td>${esc(d.ownTeam)}</td></tr>
         <tr><td class="l">試合数</td><td>${d.matches.length}</td></tr>
         <tr><td class="l">指標列</td><td>${d.metrics.length}（大分類 ${d.catList.length}）</td></tr>
@@ -1046,9 +1094,10 @@ function renderImport(msg) {
   ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', e => e.dataTransfer.files.length && readFiles([...e.dataTransfer.files]));
+  app.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { S.importMode = b.dataset.mode; renderImport(); }));
   const dl = document.getElementById('dl-mece'); if (dl) dl.addEventListener('click', downloadMece);
   const reset = document.getElementById('reset');
-  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
+  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA, ['同梱サンプル']); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
 }
 
 async function readFiles(files) {
@@ -1067,15 +1116,21 @@ async function readFiles(files) {
       if (!found) skipped.push(f.name);
     }
     if (!sources.length) throw new Error('「日付」と「チーム（グループのデータベース）」の列を持つシートが見つかりません。');
-    // 整理済みシート 1 枚だけならそのまま、それ以外は統合して MECE に整理する
-    const single = sources.length === 1 && sources[0].kind === 'mece';
-    const built = single ? { aoa: sources[0].aoa, summary: null } : buildMece(sources);
+    // 追加モード：これまでのデータも 1 つの元データとして扱い、新しいファイルの値を優先して統合する
+    const append = S.importMode === 'append' && S.aoa && S.data;
+    const prevMatches = append ? S.data.matches.length : 0;
+    if (append) sources.push(meceSheetAsSource(S.aoa, 'これまでのデータ'));
+    const fileNames = [...(append ? S.files : []), ...files.map(f => f.name)];
+    // 整理済みシート 1 枚だけを置き換えで読み込む場合はそのまま、それ以外は統合して MECE に整理する
+    const single = !append && sources.length === 1 && sources[0].kind === 'mece';
+    const built = single ? { aoa: sources[0].aoa, summary: null } : buildMece(sources, fileNames);
     const parsed = parseSheet(built.aoa);
-    const name = files.length === 1 ? files[0].name : `${files.length}ファイルを統合（${files.map(f => f.name).join('、')}）`;
-    if (CLOUD) await saveCloud(built.aoa, name);
-    loadData(parsed, CLOUD ? 'cloud' : 'upload', name, built.aoa); updateBrand();
-    const sm = built.summary;
-    toast(sm ? `${sm.files}ファイルを統合：${sm.matches}試合・指標${sm.metrics}個を整理${skipped.length ? `（読み込めなかったファイル ${skipped.length}件）` : ''}`
+    const name = fileNames.length === 1 ? fileNames[0] : `${fileNames.length}ファイルを統合`;
+    if (CLOUD) await saveCloud(built.aoa, name, fileNames);
+    loadData(parsed, CLOUD ? 'cloud' : 'upload', name, built.aoa, fileNames); updateBrand();
+    const sm = built.summary, skip = skipped.length ? `（読み込めなかったファイル ${skipped.length}件）` : '';
+    toast(append ? `${files.length}ファイルを追加して統合：${prevMatches}試合 → ${parsed.matches.length}試合、指標${sm.metrics}個${skip}`
+      : sm ? `${sm.files}ファイルを統合：${sm.matches}試合・指標${sm.metrics}個を整理${skip}`
       : `${files[0].name} から ${parsed.matches.length}試合を読み込みました${CLOUD ? '（クラウドに保存）' : ''}`);
     location.hash = '#overview'; if (location.hash === '#overview') route();
   } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
@@ -1455,11 +1510,11 @@ function rerenderForTheme() { rerenderSafe(); }
 const CLOUD = typeof window.firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
 let cloudUser = null;
 const dataDoc = () => firebase.firestore().doc(`users/${cloudUser.uid}/datasets/current`);
-async function saveCloud(aoa, fileName) {
+async function saveCloud(aoa, fileName, files) {
   const json = JSON.stringify(aoa);
   if (json.length > 900000) throw new Error('ファイルが大きすぎて保存できません（上限 約900KB）。不要なシートや行を削除してください。');
   try {
-    await dataDoc().set({ aoa: json, fileName, uploadedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await dataDoc().set({ aoa: json, fileName, files: files || [fileName], uploadedAt: firebase.firestore.FieldValue.serverTimestamp() });
   } catch (e) {
     throw new Error(e.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : `クラウドに保存できませんでした（${e.code || e.message}）。`);
   }
@@ -1494,7 +1549,7 @@ function startUI() {
 }
 function rerenderSafe() { if (!CLOUD || (cloudUser && S.access)) route(); }
 if (!CLOUD) {
-  try { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  try { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA, ['同梱サンプル']); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
   if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(route); }
 } else {
   startUI();
@@ -1508,7 +1563,7 @@ if (!CLOUD) {
     try {
       const snap = await dataDoc().get();
       S.access = true;
-      if (snap.exists) { const v = snap.data(), aoa = JSON.parse(v.aoa); loadData(parseSheet(aoa), 'cloud', v.fileName, aoa); updateBrand(); }
+      if (snap.exists) { const v = snap.data(), aoa = JSON.parse(v.aoa); loadData(parseSheet(aoa), 'cloud', v.fileName, aoa, v.files || [v.fileName]); updateBrand(); }
       route();
       if (document.fonts) document.fonts.ready.then(rerenderSafe);
     } catch (e) {
