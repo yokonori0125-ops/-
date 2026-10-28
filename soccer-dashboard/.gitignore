@@ -1,0 +1,13 @@
+# ビルド成果物（Firebase 版は CI で生成）
+build/
+# サンプルデータを同梱した単体版・試合データ・分析結果はリポジトリに入れない
+index.html
+src/sample-data.json
+analysis/results.txt
+*.xlsx
+*.csv
+# ツール
+node_modules/
+__pycache__/
+.firebase/
+*-debug.log

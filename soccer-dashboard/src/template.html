@@ -1,0 +1,1284 @@
+<title>Match Lens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+/* Layout: sticky tab bar → one scrolling column (max 1200px) of cards; scoreboard hero on match pages */
+:root {
+  --bg: #f3f5f3; --surface: #fcfdfc; --surface-2: #eaeeea; --line: #d9dfda; --grid: #e6eae6;
+  --fg: #0f1411; --fg-2: #48514b; --muted: #6e7771;
+  --own: #2a78d6; --opp: #eb6834;
+  --k1: #1baf7a; --k2: #6250d6; --k3: #eda100; --k4: #e87ba4;
+  --z1: #86b6ef; --z2: #2a78d6; --z3: #104281;
+  --win: #0a8a0a; --draw: #6e7771; --loss: #c43434;
+  --pos: #2a78d6; --neg: #e34948;
+  --nav: #0f2219; --nav-fg: #e8efe9; --nav-muted: #9db3a5;
+  --hl: #6250d6; --bar-strong: #aab2ac; --bar-muted: #d3d9d4;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Noto Sans JP", sans-serif;
+  --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101311; --surface: #181c19; --surface-2: #222723; --line: #2e3530; --grid: #262c28;
+    --fg: #edf1ee; --fg-2: #b6beb8; --muted: #8b948e;
+    --own: #3987e5; --opp: #d95926;
+    --k1: #199e70; --k2: #9085e9; --k3: #c98500; --k4: #d55181;
+    --z1: #256abf; --z2: #5598e7; --z3: #9ec5f4;
+    --win: #0ca30c; --draw: #8b948e; --loss: #e66767;
+    --pos: #3987e5; --neg: #e66767;
+    --nav: #0b1510; --nav-fg: #e8efe9; --nav-muted: #8aa293;
+    --hl: #9085e9; --bar-strong: #5f6862; --bar-muted: #3a413c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101311; --surface: #181c19; --surface-2: #222723; --line: #2e3530; --grid: #262c28;
+  --fg: #edf1ee; --fg-2: #b6beb8; --muted: #8b948e;
+  --own: #3987e5; --opp: #d95926;
+  --k1: #199e70; --k2: #9085e9; --k3: #c98500; --k4: #d55181;
+  --z1: #256abf; --z2: #5598e7; --z3: #9ec5f4;
+  --win: #0ca30c; --draw: #8b948e; --loss: #e66767;
+  --pos: #3987e5; --neg: #e66767;
+  --nav: #0b1510; --nav-fg: #e8efe9; --nav-muted: #8aa293;
+  --hl: #9085e9; --bar-strong: #5f6862; --bar-muted: #3a413c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.6; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--nav); }
+.num, .tabnum { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h2 { font-size: 17px; font-weight: 700; }
+h3 { font-size: 14px; font-weight: 700; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--own); outline-offset: 2px; }
+
+/* Navigation */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--nav); color: var(--nav-fg);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.nav-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 20px; min-height: 56px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; }
+.brand small { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--nav-muted); letter-spacing: 0; }
+.tabs { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; }
+.tabs a { color: var(--nav-muted); text-decoration: none; padding: 16px 12px 14px; font-weight: 500; font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tabs a:hover { color: var(--nav-fg); }
+.tabs a[aria-current="page"] { color: var(--nav-fg); border-bottom-color: var(--nav-fg); }
+
+main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+.wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.card-head p { margin: 0; color: var(--muted); font-size: 12px; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.grid-3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.chart-box { position: relative; height: 280px; }
+.chart-box.tall { height: 360px; }
+.chart-box.short { height: 210px; }
+.muted { color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Hero (overview) */
+.hero { display: grid; gap: 24px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: end; }
+.hero h1 { font-family: var(--font-display); font-size: clamp(34px, 6vw, 56px); line-height: 1; font-weight: 700; letter-spacing: .01em; }
+.hero .meta { color: var(--fg-2); margin-top: 8px; font-size: 13px; }
+.record { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.rec { min-width: 74px; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); text-align: center; }
+.rec b { display: block; font-family: var(--font-display); font-size: 34px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.rec span { font-size: 12px; color: var(--muted); }
+.rec.w b { color: var(--win); } .rec.l b { color: var(--loss); }
+@media (max-width: 760px) { .hero { grid-template-columns: 1fr; } .record { justify-content: flex-start; } }
+
+/* KPI tiles */
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kpi .lbl { font-size: 12px; color: var(--fg-2); font-weight: 500; }
+.kpi .val { font-family: var(--font-display); font-size: 34px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .val small { font-size: 18px; color: var(--muted); font-weight: 500; }
+.kpi .cmp { font-size: 12px; color: var(--muted); }
+.kpi svg { width: 100%; height: 34px; margin-top: 6px; display: block; }
+
+/* Insights */
+.insights { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.insights li { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); }
+.tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); white-space: nowrap; margin-top: 1px; }
+.tag.good { color: var(--win); border-color: currentColor; }
+.tag.bad { color: var(--loss); border-color: currentColor; }
+
+/* Match result cards */
+.results { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
+.res { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); text-decoration: none; color: inherit; position: relative; transition: border-color .15s, transform .15s; }
+.res:hover { border-color: var(--own); transform: translateY(-1px); }
+.res .top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+.res .opp { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.res .score { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.res .comp { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; color: var(--surface); }
+.pill.W { background: var(--win); } .pill.D { background: var(--draw); } .pill.L { background: var(--loss); }
+
+/* Head-to-head */
+.h2h-legend { display: flex; gap: 16px; font-size: 12px; color: var(--fg-2); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.h2h { display: grid; gap: 6px; }
+.h2h-row { display: grid; grid-template-columns: 64px 1fr 64px; align-items: center; gap: 10px; }
+.h2h-row .v { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--fg-2); }
+.h2h-row .v.l { text-align: right; } .h2h-row .v.b { color: var(--fg); font-weight: 700; }
+.h2h-mid { display: flex; flex-direction: column; gap: 3px; }
+.h2h-mid .name { text-align: center; font-size: 12px; color: var(--fg-2); }
+.h2h-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; height: 8px; }
+.h2h-bars span { display: block; height: 8px; }
+.h2h-bars .a { justify-self: end; background: var(--own); border-radius: 4px 0 0 4px; }
+.h2h-bars .b { background: var(--opp); border-radius: 0 4px 4px 0; }
+
+/* Match page */
+.switcher { display: flex; gap: 8px; align-items: center; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; flex: 1; min-width: 0; }
+.chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); white-space: nowrap; font-size: 12px; text-decoration: none; color: var(--fg-2); }
+.chip[aria-current="page"] { border-color: var(--fg); color: var(--fg); font-weight: 700; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.W { background: var(--win); } .dot.D { background: var(--draw); } .dot.L { background: var(--loss); }
+.iconbtn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; flex: none; text-decoration: none; color: var(--fg); }
+.iconbtn[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+
+.scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 22px 24px; }
+.sb-team { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sb-team.r { text-align: right; align-items: flex-end; }
+.sb-team .nm { font-family: var(--font-display); font-weight: 700; font-size: clamp(20px, 3.4vw, 32px); line-height: 1.1; }
+.sb-team .fm { font-size: 12px; color: var(--muted); }
+.sb-team .side { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-2); }
+.sb-score { text-align: center; }
+.sb-score .s { font-family: var(--font-display); font-weight: 700; font-size: clamp(44px, 8vw, 72px); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.sb-score .x { font-size: 13px; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.sb-meta { grid-column: 1 / -1; display: flex; gap: 8px 18px; flex-wrap: wrap; justify-content: center; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 560px) { .scoreboard { grid-template-columns: 1fr 1fr; } .sb-score { grid-column: 1 / -1; order: -1; } }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 99px; padding: 2px; background: var(--surface-2); }
+.seg button { border: 0; background: transparent; padding: 4px 14px; border-radius: 99px; cursor: pointer; font-size: 12px; color: var(--fg-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 700; box-shadow: 0 0 0 1px var(--line); }
+
+.donut { display: flex; flex-direction: column; gap: 10px; }
+.donut .chart-box { height: 190px; }
+.legend-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.legend-list li { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; }
+.legend-list .n { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; min-width: 3ch; }
+.legend-list .p { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; min-width: 5ch; }
+
+/* Tables */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+thead th { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; position: sticky; top: 0; background: var(--surface); }
+table.kv td { white-space: normal; overflow-wrap: anywhere; }
+td.grp { color: var(--muted); font-size: 12px; }
+td.d-pos { color: var(--pos); } td.d-neg { color: var(--neg); }
+details.cat { border-top: 1px solid var(--line); }
+details.cat:first-of-type { border-top: 0; }
+details.cat summary { cursor: pointer; padding: 12px 0; font-weight: 700; display: flex; align-items: center; gap: 8px; list-style: none; }
+details.cat summary::-webkit-details-marker { display: none; }
+details.cat summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+details.cat[open] summary::before { transform: rotate(90deg); }
+details.cat summary .c { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+/* Heat table */
+.heat td.h { position: relative; text-align: center; }
+.heat td.h .o { display: block; font-weight: 700; color: var(--fg); }
+.heat td.h .dd { display: block; font-size: 11px; color: var(--fg-2); }
+.scale { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-2); flex-wrap: wrap; }
+.scale .bar { width: 140px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, color-mix(in oklab, var(--neg) 50%, var(--surface)), var(--surface-2), color-mix(in oklab, var(--pos) 50%, var(--surface))); border: 1px solid var(--line); }
+
+/* Trends controls */
+.controls { display: flex; gap: 12px 20px; flex-wrap: wrap; align-items: center; }
+.controls label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--fg-2); cursor: pointer; }
+select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); max-width: 100%; }
+.mini-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.mini-title span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Import */
+.drop { border: 2px dashed var(--line); border-radius: var(--radius); padding: 40px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--surface); transition: border-color .15s, background .15s; }
+.drop.over { border-color: var(--own); background: color-mix(in oklab, var(--own) 6%, var(--surface)); }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 8px; border: 1px solid var(--fg); background: var(--fg); color: var(--surface); cursor: pointer; font-weight: 700; font-size: 13px; }
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+.msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; border: 1px solid var(--line); background: var(--surface-2); }
+.msg.err { border-color: var(--loss); color: var(--loss); }
+.msg.ok { border-color: var(--win); }
+.spec { margin: 0; padding-left: 18px; color: var(--fg-2); display: grid; gap: 4px; }
+.notes { margin: 0; padding-left: 18px; color: var(--fg-2); font-size: 12px; display: grid; gap: 6px; }
+/* Factor analysis */
+.small { font-size: 12px; }
+.flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); counter-reset: step; }
+.flow li { position: relative; padding: 10px 12px 10px 40px; border-radius: 8px; background: var(--surface-2); display: flex; flex-direction: column; gap: 2px; counter-increment: step; }
+.flow li::before { content: counter(step); position: absolute; left: 10px; top: 10px; width: 22px; height: 22px; border-radius: 50%; background: var(--hl); color: var(--surface); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.flow b { font-size: 13px; } .flow span { font-size: 12px; color: var(--fg-2); }
+.team-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.tchip { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 6px 14px; cursor: pointer; font-size: 13px; color: var(--fg-2); }
+.tchip[aria-pressed="true"] { border-color: var(--hl); color: var(--fg); font-weight: 700; background: color-mix(in oklab, var(--hl) 12%, var(--surface)); }
+.tchip[aria-pressed="true"]::before { content: "✓ "; color: var(--hl); }
+.legend-inline { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--fg-2); margin-bottom: 8px; }
+.legend-inline span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-inline .ring { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--bar-strong); }
+.legend-inline .dot-f { width: 10px; height: 10px; border-radius: 50%; background: var(--hl); }
+.legend-inline .dash { width: 14px; border-top: 1.5px dashed var(--muted); }
+.dumbbell { width: 100%; min-width: 480px; height: auto; display: block; }
+.dumbbell .svg-tick { font-size: 11px; fill: var(--muted); }
+.dumbbell .svg-lbl { font-size: 12px; fill: var(--fg-2); }
+.dumbbell .svg-val { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.dumbbell .on { fill: var(--fg); font-weight: 700; }
+.account { order: 3; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--nav-muted); margin-left: 12px; }
+.account button { border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+.gate { max-width: 520px; margin: 40px auto; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--surface); padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 20; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="nav">
+  <div class="nav-inner">
+    <div class="brand">Match Lens <small id="brand-team"></small></div>
+    <div class="account" id="account" hidden><span id="acct-email"></span><button type="button" id="signout">ログアウト</button></div>
+    <nav class="tabs" aria-label="ページ">
+      <a href="#overview" data-route="overview">シーズン概要</a>
+      <a href="#match-1" data-route="match">試合別</a>
+      <a href="#trends" data-route="trends">推移比較</a>
+      <a href="#analysis" data-route="analysis">要因分析</a>
+      <a href="#import" data-route="import">データ取込</a>
+    </nav>
+  </div>
+</header>
+<main><div class="wrap" id="app"></div></main>
+<div class="toast" id="toast" hidden></div>
+
+__HEAD_EXTRA__
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const SAMPLE_AOA = __DATA__;
+</script>
+<script>
+"use strict";
+/* ============ Parsing: 4-level header sheet → matches ============ */
+const clean = v => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
+const K = (met, sub) => met + '|' + (sub || '');
+
+function toISODate(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    const p = n => String(n).padStart(2, '0');
+    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+  }
+  if (typeof v === 'number') return toISODate(new Date(Math.round((v - 25569) * 86400000) + new Date().getTimezoneOffset() * 60000));
+  const s = clean(v).replace(/\//g, '-');
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : s;
+}
+
+function parseSheet(aoa) {
+  const hr = aoa.findIndex(r => r && clean(r[0]) === '日付');
+  if (hr < 1) throw new Error('見出し行が見つかりません。A列に「日付」と書かれた見出し行（その上に大分類の行）が必要です。');
+  const catRow = aoa[hr - 1] || [], grpRow = aoa[hr] || [], metRow = aoa[hr + 1] || [], subRow = aoa[hr + 2] || [];
+  const width = Math.max(catRow.length, grpRow.length, metRow.length, subRow.length);
+  const cols = [], cats = [];
+  let cat = '', grp = '', met = '';
+  for (let c = 0; c < width; c++) {
+    const cv = clean(catRow[c]), gv = clean(grpRow[c]), mv = clean(metRow[c]), sv = clean(subRow[c]);
+    if (cv) { cat = cv; grp = ''; met = ''; cats.push(cv); }
+    if (gv) { grp = gv; met = ''; }
+    if (mv) met = mv;
+    const info = cats.length <= 1;
+    if (info) { if (gv) cols.push({ idx: c, info: true, name: gv }); continue; }
+    if (!met && !sv) continue;
+    const m = met || grp;
+    cols.push({ idx: c, info: false, cat, grp, met: m, sub: sv, key: K(m, sv), derived: /算出値/.test(m) });
+  }
+  const infoIdx = {};
+  cols.filter(c => c.info).forEach(c => (infoIdx[c.name] = c.idx));
+  for (const need of ['日付', '試合', 'チーム']) if (!(need in infoIdx)) throw new Error(`試合情報の列「${need}」が見つかりません。`);
+  const metrics = cols.filter(c => !c.info);
+  if (!metrics.length) throw new Error('指標の列が見つかりません。');
+
+  const rows = [], notes = [];
+  let r = hr + 3;
+  for (; r < aoa.length; r++) {
+    const row = aoa[r] || [];
+    const first = clean(row[0]);
+    if (!first || /^平均|^注記/.test(first)) break;
+    if (!clean(row[infoIdx['チーム']])) continue;
+    rows.push(row);
+  }
+  for (; r < aoa.length; r++) { const t = clean((aoa[r] || [])[0]); if (/^【/.test(t)) notes.push(t); }
+  if (!rows.length) throw new Error('試合データの行がありません。');
+
+  const sideOf = row => {
+    const vals = {};
+    for (const c of metrics) { const v = row[c.idx]; vals[c.key] = v === '' || v == null || isNaN(Number(v)) ? null : Number(v); }
+    // 算出値の列（数式）がキャッシュ値を持たないファイル向けの補完
+    const fill = (k, total, parts) => { if (vals[k] == null && vals[total] != null) vals[k] = parts.reduce((a, p) => a - (vals[p] || 0), vals[total]); };
+    fill(K('方向分類外（算出値）', '合計'), K('パス', '合計'), ['前線へのパス', '横パス', 'バックパス'].map(m => K(m, '合計')));
+    fill(K('方向分類外（算出値）', '成功'), K('パス', '成功'), ['前線へのパス', '横パス', 'バックパス'].map(m => K(m, '成功')));
+    fill(K('その他（算出値）', '件数'), K('競り合い（全体）', '件数'), ['攻め競り合い', '守り競り合い', '空中競り合い'].map(m => K(m, '件数')));
+    fill(K('その他（算出値）', '勝ち'), K('競り合い（全体）', '勝ち'), ['攻め競り合い', '守り競り合い', '空中競り合い'].map(m => K(m, '勝ち')));
+    const g = n => (n in infoIdx ? row[infoIdx[n]] : null);
+    return { team: clean(g('チーム')), side: clean(g('区分')), form: clean(g('フォーメーション')), vals,
+      date: toISODate(g('日付')), name: clean(g('試合')), comp: clean(g('大会')), dur: g('試合時間(分)') };
+  };
+  const sides = rows.map(sideOf);
+
+  // 自チーム = 「区分」が自チームの行、なければ全試合に登場するチーム
+  let ownTeam = (sides.find(s => s.side === '自チーム') || {}).team;
+  if (!ownTeam) {
+    const cnt = {}; sides.forEach(s => (cnt[s.team] = (cnt[s.team] || 0) + 1));
+    ownTeam = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  const byMatch = new Map();
+  for (const s of sides) { const k = s.date + '|' + s.name; if (!byMatch.has(k)) byMatch.set(k, []); byMatch.get(k).push(s); }
+  const matches = [];
+  for (const [, ss] of byMatch) {
+    const own = ss.find(s => s.side === '自チーム') || ss.find(s => s.team === ownTeam);
+    const opp = ss.find(s => s !== own);
+    if (!own || !opp) continue;
+    const gf = own.vals[K('ゴール')], ga = opp.vals[K('ゴール')];
+    const result = gf > ga ? 'W' : gf < ga ? 'L' : 'D';
+    const home = own.name.indexOf(own.team) === 0;
+    matches.push({ date: own.date, name: own.name, comp: own.comp, dur: own.dur, own, opp, gf, ga, result, home });
+  }
+  matches.sort((a, b) => a.date.localeCompare(b.date));
+  matches.forEach((m, i) => (m.no = i + 1));
+  if (!matches.length) throw new Error('自チームと対戦相手の行を1試合単位で対にできませんでした。「区分」列に「自チーム」「対戦相手」を入れてください。');
+
+  const catList = [...new Set(metrics.map(c => c.cat))];
+  return { title: clean((aoa[0] || [])[0]), ownTeam: own0(matches), metrics, catList, matches, notes };
+}
+const own0 = ms => ms[0].own.team;
+
+/* ============ Stats helpers ============ */
+const mean = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+const sd = a => { const v = a.filter(x => x != null), m = mean(v); return v.length > 1 ? Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / (v.length - 1)) : 0; };
+const pearson = (xs, ys) => {
+  const p = xs.map((x, i) => [x, ys[i]]).filter(q => q[1] != null);
+  if (p.length < 4) return 0;
+  const mx = mean(p.map(q => q[0])), my = mean(p.map(q => q[1]));
+  let n = 0, dx = 0, dy = 0;
+  for (const [x, y] of p) { n += (x - mx) * (y - my); dx += (x - mx) ** 2; dy += (y - my) ** 2; }
+  return dx && dy ? n / Math.sqrt(dx * dy) : 0;
+};
+const isPct = (met, sub) => /%|率/.test(sub || '') || /%/.test(met);
+const label = (met, sub) => {
+  const m = met.replace(/\(%\)/, '');
+  if (!sub || sub === '合計' || sub === '件数') return m;
+  return `${m} ${sub.replace(/\(%\)/, '')}`;
+};
+const fmt = (v, met, sub, digits) => {
+  if (v == null || isNaN(v)) return '–';
+  if (isPct(met, sub)) return v.toFixed(1) + '%';
+  if (met === 'xG') return v.toFixed(2);
+  if (digits != null) return v.toFixed(digits);
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+};
+const fmtDiff = (d, met, sub) => {
+  if (d == null || isNaN(d)) return '–';
+  const s = d > 0 ? '+' : d < 0 ? '−' : '±';
+  const a = Math.abs(d);
+  if (isPct(met, sub)) return s + a.toFixed(1) + 'pt';
+  if (met === 'xG') return s + a.toFixed(2);
+  return s + (Number.isInteger(a) ? a : a.toFixed(1));
+};
+const shortDate = d => { const p = d.split('-'); return p.length === 3 ? `${+p[1]}/${+p[2]}` : d; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const RES = { W: '勝', D: '分', L: '敗' };
+const get = (side, met, sub) => (side && side.vals[K(met, sub)] != null ? side.vals[K(met, sub)] : null);
+const has = (met, sub) => S.data.metrics.some(c => c.key === K(met, sub));
+
+/* 主要指標（polarity: 1 = 高いほど良い, -1 = 低いほど良い） */
+const KEY_METRICS = [
+  ['xG', '', 'xG', 1], ['シュート', '合計', 'シュート', 1], ['シュート', '枠内', '枠内シュート', 1],
+  ['ボール保持率(%)', '', 'ボール保持率', 1], ['パス', '合計', 'パス数', 1], ['パス', '成功率(%)', 'パス成功率', 1],
+  ['1/3へのパス', '成功', '1/3へのパス（成功）', 1], ['クロス', '合計', 'クロス', 1],
+  ['ポジショナルアタック', 'シュートあり', 'ポジショナル攻撃→シュート', 1], ['カウンターアタック', '合計', 'カウンター攻撃', 1],
+  ['リカバリー（ゾーン別）', '合計', 'リカバリー', 1], ['リカバリー（ゾーン別）', '高', 'リカバリー（高）', 1],
+  ['インターセプト', '', 'インターセプト', 1], ['ボールロス（ゾーン別）', '合計', 'ボールロス', -1],
+  ['競り合い（全体）', '勝率(%)', '競り合い勝率', 1], ['CK', '合計', 'CK', 1], ['ファウル', '', 'ファウル', -1],
+];
+const keyMetrics = () => KEY_METRICS.filter(([m, s]) => has(m, s));
+
+/* ============ State ============ */
+const S = { data: null, pieSide: 'own', trendKey: K('xG'), showOpp: true, showAvg: true, source: 'sample', fileName: '', strong: new Set(), ana: null };
+function loadData(d, source, fileName) {
+  S.data = d; S.source = source; S.fileName = fileName || ''; S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
+  S.strong = new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]).filter(t => STRONG_DEFAULT.includes(t))); S.ana = null;
+}
+
+/* ============ Theme / charts ============ */
+const T = n => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+const charts = [];
+const mk = (el, cfg) => { const c = new Chart(el, cfg); charts.push(c); return c; };
+const destroyCharts = () => charts.splice(0).forEach(c => c.destroy());
+const crosshair = { id: 'crosshair', afterDatasetsDraw(chart) {
+  const a = chart.tooltip && chart.tooltip.getActiveElements(); if (!a || !a.length) return;
+  const x = a[0].element.x, { top, bottom } = chart.chartArea, ctx = chart.ctx;
+  ctx.save(); ctx.strokeStyle = T('muted'); ctx.globalAlpha = .45; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.restore(); } };
+const centerText = { id: 'centerText', afterDraw(chart, _a, o) {
+  if (!o || !o.text) return; const { ctx, chartArea: { left, right, top, bottom } } = chart;
+  const cx = (left + right) / 2, cy = (top + bottom) / 2;
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = T('fg'); ctx.font = `700 24px ${T('font-display')}`; ctx.fillText(o.text, cx, cy - (o.sub ? 7 : 0));
+  if (o.sub) { ctx.fillStyle = T('muted'); ctx.font = `500 11px ${T('font-body')}`; ctx.fillText(o.sub, cx, cy + 13); }
+  ctx.restore(); } };
+Chart.register(centerText);
+
+function applyChartTheme() {
+  Chart.defaults.color = T('fg-2');
+  Chart.defaults.borderColor = T('grid');
+  Chart.defaults.font.family = T('font-body');
+  Chart.defaults.font.size = 12;
+  Chart.defaults.animation.duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500;
+  Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: T('fg'), titleColor: T('surface'), bodyColor: T('surface'),
+    padding: 10, cornerRadius: 6, boxPadding: 4, usePointStyle: true, titleFont: { weight: '700' } });
+}
+const legendTop = { position: 'top', align: 'start', labels: { usePointStyle: true, pointStyle: 'rectRounded', boxWidth: 10, boxHeight: 10, padding: 14 } };
+const matchLabels = () => S.data.matches.map(m => [shortDate(m.date), m.opp.team]);
+const matchTitle = items => { const m = S.data.matches[items[0].dataIndex]; return `${m.date}  ${m.name}`; };
+
+function lineDataset(lbl, data, color, extra = {}) {
+  return Object.assign({ label: lbl, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
+    pointBorderColor: T('surface'), pointBorderWidth: 2, tension: .25, spanGaps: true }, extra);
+}
+function lineChart(el, { datasets, met, sub, legend = true, avg }) {
+  const pct = isPct(met, sub);
+  if (avg != null) datasets.push({ label: '自チーム平均', data: S.data.matches.map(() => avg), borderColor: T('muted'), borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, fill: false });
+  return mk(el, { type: 'line', data: { labels: matchLabels(), datasets }, plugins: [crosshair],
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: legend ? legendTop : { display: false },
+        tooltip: { callbacks: { title: matchTitle, label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y, met, sub)}` } } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, suggestedMax: pct ? 100 : undefined, max: pct ? 100 : undefined, grid: { color: T('grid') }, border: { display: false },
+          ticks: { callback: v => pct ? v + '%' : v, maxTicksLimit: 6 } } } } });
+}
+function barChart(el, { labels, datasets, pct, horizontal, stacked, unit = '' }) {
+  const axisV = { beginAtZero: true, max: pct ? 100 : undefined, stacked, grid: { color: T('grid') }, border: { display: false }, ticks: { callback: v => pct ? v + '%' : v, maxTicksLimit: 6 } };
+  const axisC = { stacked, grid: { display: false }, ticks: { font: { size: 11 } } };
+  datasets.forEach(d => Object.assign(d, { borderRadius: 4, borderSkipped: 'start', borderColor: T('surface'), borderWidth: { top: 0, bottom: 0, left: 0, right: 0 }, maxBarThickness: 22, categoryPercentage: .72, barPercentage: .9 }));
+  return mk(el, { type: 'bar', data: { labels, datasets },
+    options: { indexAxis: horizontal ? 'y' : 'x', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: legendTop, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${pct ? (c.raw ?? 0).toFixed(1) + '%' : c.raw}${unit}` } } },
+      scales: horizontal ? { x: axisV, y: axisC } : { x: axisC, y: axisV } } });
+}
+
+/* ============ Components ============ */
+function sparkSVG(vals, color) {
+  const v = vals.map(x => (x == null ? null : x)), ok = v.filter(x => x != null);
+  if (ok.length < 2) return '';
+  const W = 160, H = 34, pad = 4, mn = Math.min(...ok), mx = Math.max(...ok), rng = mx - mn || 1;
+  const pts = v.map((y, i) => y == null ? null : [pad + i * (W - 2 * pad) / (v.length - 1), H - pad - (y - mn) / rng * (H - 2 * pad)]).filter(Boolean);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  const area = `${d} L${last[0].toFixed(1)} ${H} L${pts[0][0].toFixed(1)} ${H} Z`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${area}" fill="${color}" fill-opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${color}"/></svg>`;
+}
+
+function h2hHTML(a, b, nameA, nameB) {
+  const rows = keyMetrics().map(([met, sub, lbl, pol]) => {
+    const x = get(a, met, sub), y = get(b, met, sub);
+    const mx = Math.max(x || 0, y || 0) || 1;
+    const better = x == null || y == null || x === y ? 0 : (x > y ? 1 : -1) * pol;
+    return `<div class="h2h-row" role="row">
+      <div class="v l ${better > 0 ? 'b' : ''}" role="cell">${fmt(x, met, sub, met === 'xG' ? 2 : undefined)}</div>
+      <div class="h2h-mid" role="cell"><div class="name">${esc(lbl)}</div>
+        <div class="h2h-bars"><span class="a" style="width:${(x || 0) / mx * 100}%"></span><span class="b" style="width:${(y || 0) / mx * 100}%"></span></div></div>
+      <div class="v ${better < 0 ? 'b' : ''}" role="cell">${fmt(y, met, sub, met === 'xG' ? 2 : undefined)}</div></div>`;
+  }).join('');
+  return `<div class="h2h-legend"><span><i class="sw" style="background:var(--own)"></i>${esc(nameA)}</span><span><i class="sw" style="background:var(--opp)"></i>${esc(nameB)}</span><span class="muted">太字＝優位</span></div>
+    <div class="h2h" role="table" style="margin-top:12px">${rows}</div>`;
+}
+
+function avgSide(which) {
+  const vals = {};
+  for (const c of S.data.metrics) vals[c.key] = mean(S.data.matches.map(m => m[which].vals[c.key]));
+  return { vals };
+}
+
+/* ============ Auto analysis ============ */
+function matchInsights(m) {
+  const out = [], ms = S.data.matches;
+  const xf = get(m.own, 'xG'), xa = get(m.opp, 'xG');
+  if (xf != null && xa != null) {
+    const gd = m.gf - m.ga, xd = xf - xa;
+    const agree = (gd > 0 && xd > 0) || (gd < 0 && xd < 0) || (gd === 0 && Math.abs(xd) < .5);
+    out.push([agree ? '' : 'bad', '結果とxG', `${RES[m.result]}（${m.gf}-${m.ga}）。xGは ${xf.toFixed(2)} 対 ${xa.toFixed(2)}（差 ${fmtDiff(xd, 'xG')}）。${agree ? 'スコアはxG差と同じ方向。' : 'スコアとxG差の方向が一致しない。'}`]);
+    const ov = m.gf - xf, ova = m.ga - xa;
+    out.push([ov >= 0 ? 'good' : 'bad', '決定力', `得点 − xG = ${fmtDiff(ov, 'xG')}、失点 − 被xG = ${fmtDiff(ova, 'xG')}。`]);
+  }
+  // 自チーム平均からの乖離（標準化）
+  if (ms.length >= 3) {
+    const cand = [];
+    for (const c of S.data.metrics) {
+      if (c.derived || !['', '合計', '件数', '成功率(%)', '勝率(%)', '枠内率(%)'].includes(c.sub) || /^(失点|被シュート)/.test(c.met)) continue;
+      const series = ms.map(x => x.own.vals[c.key]), s = sd(series), mu = mean(series), v = m.own.vals[c.key];
+      if (!s || v == null || mu == null) continue;
+      // 母数が小さい指標（PK・警告など）はノイズになるため除外
+      const base = isPct(c.met, c.sub) ? mean(ms.map(x => x.own.vals[K(c.met, '合計')] ?? x.own.vals[K(c.met, '件数')] ?? null)) : mu;
+      if (base == null || Math.abs(base) < 3) continue;
+      const z = (v - mu) / s;
+      const rank = series.filter(x => x != null && x > v).length;
+      const ext = rank === 0 ? '（全試合で最多/最高）' : series.filter(x => x != null && x < v).length === 0 ? '（全試合で最少/最低）' : '';
+      cand.push({ c, z, v, mu, ext });
+    }
+    cand.sort((a, b) => Math.abs(b.z) - Math.abs(a.z));
+    cand.slice(0, 3).forEach(({ c, z, v, mu, ext }) =>
+      out.push(['', '平均との差', `${label(c.met, c.sub)} ${fmt(v, c.met, c.sub)} は自チーム平均 ${fmt(mu, c.met, c.sub, 1)} に対し ${fmtDiff(v - mu, c.met, c.sub)}（${z >= 0 ? '+' : '−'}${Math.abs(z).toFixed(1)}σ）${ext}`]));
+  }
+  // 対戦相手との差
+  const rel = keyMetrics().map(([met, sub, lbl, pol]) => {
+    const x = get(m.own, met, sub), y = get(m.opp, met, sub);
+    if (x == null || y == null || (!x && !y)) return null;
+    return { lbl, met, sub, x, y, r: pol * (x - y) / Math.max(Math.abs(x), Math.abs(y)) };
+  }).filter(Boolean).sort((a, b) => b.r - a.r);
+  if (rel.length) {
+    const t = rel[0], w = rel[rel.length - 1];
+    if (t.r > 0) out.push(['good', '最大の優位', `${t.lbl}：${fmt(t.x, t.met, t.sub)} 対 ${fmt(t.y, t.met, t.sub)}`]);
+    if (w.r < 0) out.push(['bad', '最大の劣位', `${w.lbl}：${fmt(w.x, w.met, w.sub)} 対 ${fmt(w.y, w.met, w.sub)}`]);
+  }
+  return out;
+}
+
+function seasonInsights() {
+  const ms = S.data.matches, out = [], n = ms.length;
+  const W = ms.filter(m => m.result === 'W').length, D = ms.filter(m => m.result === 'D').length, L = n - W - D;
+  const gf = ms.reduce((s, m) => s + m.gf, 0), ga = ms.reduce((s, m) => s + m.ga, 0);
+  out.push(['', '成績', `${n}試合 ${W}勝${D}分${L}敗、得点 ${gf}・失点 ${ga}（得失点差 ${fmtDiff(gf - ga, '')}）。`]);
+  if (has('xG', '')) {
+    const xf = ms.reduce((s, m) => s + (get(m.own, 'xG') || 0), 0), xa = ms.reduce((s, m) => s + (get(m.opp, 'xG') || 0), 0);
+    out.push([gf - xf >= 0 ? 'good' : 'bad', '得点とxG', `得点合計 ${gf} は xG合計 ${xf.toFixed(2)} に対し ${fmtDiff(gf - xf, 'xG')}。`]);
+    out.push([ga - xa <= 0 ? 'good' : 'bad', '失点と被xG', `失点合計 ${ga} は被xG合計 ${xa.toFixed(2)} に対し ${fmtDiff(ga - xa, 'xG')}。`]);
+  }
+  if (has('ボール保持率(%)', '')) {
+    const hi = ms.filter(m => get(m.own, 'ボール保持率(%)') > 50);
+    const rec = ms2 => `${ms2.filter(m => m.result === 'W').length}勝${ms2.filter(m => m.result === 'D').length}分${ms2.filter(m => m.result === 'L').length}敗`;
+    out.push(['', '保持率と結果', `保持率50%超の試合 ${hi.length}試合（${rec(hi)}）、50%以下 ${n - hi.length}試合（${rec(ms.filter(m => !hi.includes(m)))}）。`]);
+  }
+  // 時系列トレンド（試合順との相関）
+  const idx = ms.map((_, i) => i);
+  const tr = keyMetrics().map(([met, sub, lbl, pol]) => {
+    const ys = ms.map(m => get(m.own, met, sub)); const r = pearson(idx, ys);
+    return { met, sub, lbl, pol, r, first: ys[0], last: ys[ys.length - 1] };
+  }).filter(t => Math.abs(t.r) >= .6).sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 3);
+  tr.forEach(t => out.push([t.r * t.pol > 0 ? 'good' : 'bad', '推移の傾向',
+    `${t.lbl} は試合を追うごとに${t.r > 0 ? '増加' : '減少'}傾向（初戦 ${fmt(t.first, t.met, t.sub)} → 直近 ${fmt(t.last, t.met, t.sub)}、r = ${t.r.toFixed(2)}）。`]));
+  return out;
+}
+const insightsHTML = list => `<ul class="insights">${list.map(([cls, tag, txt]) => `<li><span class="tag ${cls}">${esc(tag)}</span><span>${esc(txt)}</span></li>`).join('')}</ul>`;
+
+/* ============ Pages ============ */
+const app = document.getElementById('app');
+
+function renderOverview() {
+  const d = S.data, ms = d.matches, n = ms.length;
+  const W = ms.filter(m => m.result === 'W').length, Dr = ms.filter(m => m.result === 'D').length, L = n - W - Dr;
+  const gf = ms.reduce((s, m) => s + m.gf, 0), ga = ms.reduce((s, m) => s + m.ga, 0);
+  const comps = [...new Set(ms.map(m => m.comp).filter(Boolean))];
+  const kpi = (lbl, met, sub, digits) => {
+    if (!has(met, sub)) return '';
+    const own = ms.map(m => get(m.own, met, sub)), opp = ms.map(m => get(m.opp, met, sub));
+    const v = fmt(mean(own), met, sub, digits);
+    return `<div class="kpi"><span class="lbl">${lbl}</span><span class="val">${v}</span><span class="cmp">相手平均 ${fmt(mean(opp), met, sub, digits)}</span>${sparkSVG(own, T('own'))}</div>`;
+  };
+  app.innerHTML = `
+  <section class="hero">
+    <div><div class="eyebrow">シーズン概要 · ${n}試合</div><h1>${esc(d.ownTeam)}</h1>
+      <div class="meta">${esc(ms[0].date)} 〜 ${esc(ms[n - 1].date)} ／ ${comps.map(esc).join('・')}</div></div>
+    <div class="record" aria-label="通算成績">
+      <div class="rec w"><b>${W}</b><span>勝</span></div><div class="rec"><b>${Dr}</b><span>分</span></div><div class="rec l"><b>${L}</b><span>敗</span></div>
+      <div class="rec"><b>${gf}<span style="font-size:20px;color:var(--muted)"> - </span>${ga}</b><span>得点 - 失点</span></div>
+    </div>
+  </section>
+  <section class="kpis" aria-label="平均指標">
+    ${kpi('平均 xG', 'xG', '', 2)}${kpi('平均 シュート', 'シュート', '合計', 1)}${kpi('平均 ボール保持率', 'ボール保持率(%)', '')}
+    ${kpi('平均 パス成功率', 'パス', '成功率(%)')}${kpi('平均 競り合い勝率', '競り合い（全体）', '勝率(%)')}${kpi('平均 リカバリー', 'リカバリー（ゾーン別）', '合計', 1)}
+  </section>
+  <section class="card"><div class="card-head"><h2>自動分析サマリー</h2><p>数値データから算出した客観的な所見</p></div>${insightsHTML(seasonInsights())}</section>
+  <section class="card"><div class="card-head"><h2>試合結果（時系列）</h2><p>カードを選ぶと試合別ページへ移動</p></div>
+    <div class="results">${ms.map(m => `<a class="res" href="#match-${m.no}">
+      <div class="top"><span>${shortDate(m.date)} · ${m.home ? 'ホーム' : 'アウェイ'}</span><span class="pill ${m.result}">${RES[m.result]}</span></div>
+      <div class="opp">vs ${esc(m.opp.team)}</div><div class="score">${m.gf} - ${m.ga}</div><div class="comp" title="${esc(m.comp)}">${esc(m.comp)}</div></a>`).join('')}</div></section>
+  <div class="grid">
+    <section class="card"><div class="card-head"><h2>得点・失点と xG</h2><p>棒＝実際のゴール、線＝xG</p></div><div class="chart-box tall"><canvas id="c-goals" role="img" aria-label="試合ごとの得点・失点とxG"></canvas></div></section>
+    <section class="card"><div class="card-head"><h2>平均スタッツ比較</h2><p>${n}試合の単純平均</p></div>${h2hHTML(avgSide('own'), avgSide('opp'), d.ownTeam + ' 平均', '対戦相手 平均')}</section>
+  </div>`;
+  const own = T('own'), opp = T('opp');
+  const datasets = [
+    { type: 'bar', label: '得点', data: ms.map(m => m.gf), backgroundColor: own, borderRadius: 4, maxBarThickness: 18, order: 2 },
+    { type: 'bar', label: '失点', data: ms.map(m => m.ga), backgroundColor: opp, borderRadius: 4, maxBarThickness: 18, order: 2 },
+  ];
+  if (has('xG', '')) datasets.push(
+    lineDataset('xG', ms.map(m => get(m.own, 'xG')), own, { type: 'line', order: 1, pointStyle: 'circle' }),
+    lineDataset('被xG', ms.map(m => get(m.opp, 'xG')), opp, { type: 'line', order: 1, pointStyle: 'rectRot', borderDash: [6, 3] }));
+  mk(document.getElementById('c-goals'), { type: 'bar', data: { labels: matchLabels(), datasets }, plugins: [crosshair],
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: legendTop, tooltip: { callbacks: { title: matchTitle, label: c => ` ${c.dataset.label}: ${/xG/.test(c.dataset.label) ? (c.raw ?? 0).toFixed(2) : c.raw}` } } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 11 } } }, y: { beginAtZero: true, grid: { color: T('grid') }, border: { display: false }, ticks: { precision: 0 } } } } });
+}
+
+function donutCard(id, title, parts, opts = {}) {
+  const valid = parts.filter(p => p.v != null);
+  if (!valid.length) return '';
+  const tot = valid.reduce((s, p) => s + p.v, 0);
+  return `<div class="card donut"><h3>${title}</h3><div class="chart-box"><canvas id="${id}" role="img" aria-label="${esc(title)}"></canvas></div>
+    <ul class="legend-list">${valid.map(p => `<li><i class="sw" style="background:${p.color}"></i><span>${esc(p.label)}</span><span class="n">${opts.pct ? p.v.toFixed(1) + '%' : p.v}</span><span class="p">${tot ? (p.v / tot * 100).toFixed(1) : '0.0'}%</span></li>`).join('')}</ul></div>`;
+}
+function drawDonut(id, parts, center) {
+  const el = document.getElementById(id); if (!el) return;
+  const valid = parts.filter(p => p.v != null);
+  mk(el, { type: 'doughnut', data: { labels: valid.map(p => p.label), datasets: [{ data: valid.map(p => p.v), backgroundColor: valid.map(p => p.color), borderColor: T('surface'), borderWidth: 2, hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '64%', plugins: { legend: { display: false }, centerText: center,
+      tooltip: { callbacks: { label: c => { const t = c.dataset.data.reduce((a, b) => a + b, 0); return ` ${c.label}: ${c.raw}（${t ? (c.raw / t * 100).toFixed(1) : 0}%）`; } } } } } });
+}
+
+function renderMatch(no) {
+  const d = S.data, ms = d.matches, m = ms[no - 1] || ms[0];
+  const prev = m.no > 1 ? m.no - 1 : null, next = m.no < ms.length ? m.no + 1 : null;
+  const left = m.home ? m.own : m.opp, right = m.home ? m.opp : m.own;
+  const tagSide = s => `<span class="side"><i class="sw" style="background:var(--${s === m.own ? 'own' : 'opp'})"></i>${s === m.own ? '自チーム' : '対戦相手'}</span>`;
+  const xg = has('xG', '') ? `xG ${get(left, 'xG').toFixed(2)} - ${get(right, 'xG').toFixed(2)}` : '';
+  app.innerHTML = `
+  <nav class="switcher" aria-label="試合の切り替え">
+    <a class="iconbtn" href="#match-${prev || 1}" aria-label="前の試合" aria-disabled="${!prev}">‹</a>
+    <div class="chips">${ms.map(x => `<a class="chip" href="#match-${x.no}" ${x === m ? 'aria-current="page"' : ''}><i class="dot ${x.result}"></i>${shortDate(x.date)} ${esc(x.opp.team)}</a>`).join('')}</div>
+    <a class="iconbtn" href="#match-${next || ms.length}" aria-label="次の試合" aria-disabled="${!next}">›</a>
+  </nav>
+  <section class="card scoreboard">
+    <div class="sb-team">${tagSide(left)}<div class="nm">${esc(left.team)}</div><div class="fm">${esc(left.form)}</div></div>
+    <div class="sb-score"><div class="s">${get(left, 'ゴール')} - ${get(right, 'ゴール')}</div><div class="x">${xg}</div>
+      <div style="margin-top:6px"><span class="pill ${m.result}">${d.ownTeam} ${RES[m.result]}</span></div></div>
+    <div class="sb-team r">${tagSide(right)}<div class="nm">${esc(right.team)}</div><div class="fm">${esc(right.form)}</div></div>
+    <div class="sb-meta"><span>${esc(m.date)}</span><span>${esc(m.comp)}</span><span>${m.dur ? m.dur + '分' : ''}</span><span>第${m.no}戦 / 全${ms.length}試合</span></div>
+  </section>
+  <div class="grid">
+    <section class="card"><div class="card-head"><h2>自動分析</h2><p>この試合の数値から算出</p></div>${insightsHTML(matchInsights(m))}</section>
+    <section class="card"><div class="card-head"><h2>主要スタッツ対比</h2></div>${h2hHTML(m.own, m.opp, m.own.team, m.opp.team)}</section>
+  </div>
+  <section class="card">
+    <div class="card-head"><h2>構成比（円グラフ）</h2>
+      <div class="seg" role="group" aria-label="表示チーム"><button type="button" data-side="own" aria-pressed="${S.pieSide === 'own'}">${esc(m.own.team)}</button><button type="button" data-side="opp" aria-pressed="${S.pieSide === 'opp'}">${esc(m.opp.team)}</button></div></div>
+    <div class="grid-3" id="donuts"></div>
+  </section>
+  <div class="grid">
+    <section class="card"><div class="card-head"><h2>パス種類別 成功率</h2><p>方向別・属性別</p></div><div class="chart-box tall"><canvas id="b-pass" role="img" aria-label="パス種類別成功率"></canvas></div></section>
+    <section class="card"><div class="card-head"><h2>攻撃の型とセットプレー</h2><p>件数</p></div><div class="chart-box tall"><canvas id="b-att" role="img" aria-label="攻撃の型とセットプレー"></canvas></div></section>
+    <section class="card"><div class="card-head"><h2>守備アクション</h2><p>件数</p></div><div class="chart-box"><canvas id="b-def" role="img" aria-label="守備アクション"></canvas></div></section>
+    <section class="card"><div class="card-head"><h2>競り合い 種類別勝率</h2></div><div class="chart-box"><canvas id="b-duel" role="img" aria-label="競り合い種類別勝率"></canvas></div></section>
+  </div>
+  <section class="card"><div class="card-head"><h2>全指標</h2><p>差＝自チーム − 相手、平均＝自チームの全試合平均</p></div>${fullTableHTML(m)}</section>`;
+
+  app.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    S.pieSide = b.dataset.side; app.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b)); drawDonuts(m);
+  }));
+  drawDonuts(m);
+
+  const own = T('own'), opp = T('opp');
+  const pick = (list, side) => list.map(([met, sub]) => get(side, met, sub));
+  const passTypes = [['前線へのパス', '前線へ'], ['横パス', '横'], ['バックパス', 'バック'], ['ロングパス', 'ロング'], ['1/3へのパス', '1/3へ'], ['縦パス', '縦'], ['スマートパス', 'スマート'], ['クロス', 'クロス']].filter(([mt]) => has(mt, '成功率(%)'));
+  barChart(document.getElementById('b-pass'), { labels: passTypes.map(p => p[1]), pct: true, horizontal: true,
+    datasets: [{ label: m.own.team, data: pick(passTypes.map(p => [p[0], '成功率(%)']), m.own), backgroundColor: own },
+      { label: m.opp.team, data: pick(passTypes.map(p => [p[0], '成功率(%)']), m.opp), backgroundColor: opp }] });
+  const att = [['ポジショナルアタック', '合計', 'ポジショナル'], ['ポジショナルアタック', 'シュートあり', 'ポジショナル→シュート'], ['カウンターアタック', '合計', 'カウンター'], ['カウンターアタック', 'シュートあり', 'カウンター→シュート'],
+    ['クロス', '合計', 'クロス'], ['CK', '合計', 'CK'], ['FK', '合計', 'FK'], ['オフサイド', '', 'オフサイド']].filter(([a, b]) => has(a, b));
+  barChart(document.getElementById('b-att'), { labels: att.map(a => a[2]), horizontal: true,
+    datasets: [{ label: m.own.team, data: pick(att, m.own), backgroundColor: own }, { label: m.opp.team, data: pick(att, m.opp), backgroundColor: opp }] });
+  const def = [['リカバリー（ゾーン別）', '合計', 'リカバリー'], ['インターセプト', '', 'インターセプト'], ['クリア', '', 'クリア'], ['スライディングタックル', '合計', 'スライディング'], ['ファウル', '', 'ファウル']].filter(([a, b]) => has(a, b));
+  barChart(document.getElementById('b-def'), { labels: def.map(a => a[2]),
+    datasets: [{ label: m.own.team, data: pick(def, m.own), backgroundColor: own }, { label: m.opp.team, data: pick(def, m.opp), backgroundColor: opp }] });
+  const du = [['競り合い（全体）', '全体'], ['攻め競り合い', '攻め'], ['守り競り合い', '守り'], ['空中競り合い', '空中']].filter(([a]) => has(a, '勝率(%)'));
+  barChart(document.getElementById('b-duel'), { labels: du.map(a => a[1]), pct: true,
+    datasets: [{ label: m.own.team, data: pick(du.map(a => [a[0], '勝率(%)']), m.own), backgroundColor: own }, { label: m.opp.team, data: pick(du.map(a => [a[0], '勝率(%)']), m.opp), backgroundColor: opp }] });
+}
+
+function drawDonuts(m) {
+  charts.filter(c => c.config.type === 'doughnut').forEach(c => { c.destroy(); charts.splice(charts.indexOf(c), 1); });
+  const side = m[S.pieSide], k = ['k1', 'k2', 'k3', 'k4'].map(T), z = ['z1', 'z2', 'z3'].map(T);
+  const sideColor = T(S.pieSide === 'own' ? 'own' : 'opp');
+  const P = (lbl, met, sub, color) => ({ label: lbl, v: get(side, met, sub), color });
+  const defs = [];
+  if (has('ボール保持率(%)', '')) defs.push(['d-pos', 'ボール保持率', [{ label: m.own.team, v: get(m.own, 'ボール保持率(%)'), color: T('own') }, { label: m.opp.team, v: get(m.opp, 'ボール保持率(%)'), color: T('opp') }],
+    { text: fmt(get(side, 'ボール保持率(%)'), 'ボール保持率(%)'), sub: side.team }, { pct: true }]);
+  const st = get(side, 'シュート', '合計'), on = get(side, 'シュート', '枠内');
+  if (st != null) defs.push(['d-shot', 'シュート 枠内 / 枠外', [{ label: '枠内', v: on, color: sideColor }, { label: '枠外', v: st - on, color: T('muted') }], { text: String(st), sub: 'シュート' }]);
+  defs.push(['d-dir', 'パス方向の内訳', [P('前線へ', '前線へのパス', '合計', k[0]), P('横', '横パス', '合計', k[1]), P('バック', 'バックパス', '合計', k[2]), P('方向分類外', '方向分類外（算出値）', '合計', k[3])],
+    { text: String(get(side, 'パス', '合計') ?? ''), sub: 'パス総数' }]);
+  defs.push(['d-loss', 'ボールロス（ゾーン別）', [P('低', 'ボールロス（ゾーン別）', '低', z[0]), P('中', 'ボールロス（ゾーン別）', '中', z[1]), P('高', 'ボールロス（ゾーン別）', '高', z[2])],
+    { text: String(get(side, 'ボールロス（ゾーン別）', '合計') ?? ''), sub: 'ロス合計' }]);
+  defs.push(['d-rec', 'リカバリー（ゾーン別）', [P('低', 'リカバリー（ゾーン別）', '低', z[0]), P('中', 'リカバリー（ゾーン別）', '中', z[1]), P('高', 'リカバリー（ゾーン別）', '高', z[2])],
+    { text: String(get(side, 'リカバリー（ゾーン別）', '合計') ?? ''), sub: 'リカバリー合計' }]);
+  defs.push(['d-duel', '競り合いの種類（件数）', [P('攻め', '攻め競り合い', '件数', k[0]), P('守り', '守り競り合い', '件数', k[1]), P('空中', '空中競り合い', '件数', k[2]), P('その他', 'その他（算出値）', '件数', k[3])],
+    { text: String(get(side, '競り合い（全体）', '件数') ?? ''), sub: '競り合い総数' }]);
+  document.getElementById('donuts').innerHTML = defs.map(([id, t, parts, , o]) => donutCard(id, t, parts, o)).join('');
+  defs.forEach(([id, , parts, center]) => drawDonut(id, parts, center));
+}
+
+function fullTableHTML(m) {
+  const d = S.data;
+  return d.catList.map((cat, ci) => {
+    const cols = d.metrics.filter(c => c.cat === cat);
+    let lastGrp = '';
+    const rows = cols.map(c => {
+      const x = m.own.vals[c.key], y = m.opp.vals[c.key], avg = mean(d.matches.map(mm => mm.own.vals[c.key]));
+      const df = x != null && y != null ? x - y : null;
+      const g = c.grp !== lastGrp ? c.grp : ''; lastGrp = c.grp;
+      return `<tr><td class="grp">${esc(g)}</td><td class="l">${esc(c.met)}${c.sub ? ` <span class="muted">/ ${esc(c.sub)}</span>` : ''}</td>
+        <td>${fmt(x, c.met, c.sub)}</td><td>${fmt(y, c.met, c.sub)}</td><td class="${df > 0 ? 'd-pos' : df < 0 ? 'd-neg' : ''}">${fmtDiff(df, c.met, c.sub)}</td><td class="muted">${fmt(avg, c.met, c.sub, c.met === 'xG' ? 2 : 1)}</td></tr>`;
+    }).join('');
+    return `<details class="cat" ${ci === 0 ? 'open' : ''}><summary>${esc(cat)} <span class="c">${cols.length}列</span></summary>
+      <div class="tbl-wrap"><table><thead><tr><th>小分類</th><th class="l">指標</th><th>${esc(m.own.team)}</th><th>${esc(m.opp.team)}</th><th>差</th><th>平均</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+  }).join('');
+}
+
+const SMALL = [['xG', '', 'xG'], ['ボール保持率(%)', '', 'ボール保持率'], ['パス', '成功率(%)', 'パス成功率'], ['シュート', '合計', 'シュート'], ['競り合い（全体）', '勝率(%)', '競り合い勝率'], ['リカバリー（ゾーン別）', '高', 'リカバリー（高）']];
+const HEAT = [['xG', '', 'xG', 1], ['シュート', '合計', 'シュート', 1], ['ボール保持率(%)', '', '保持率', 1], ['パス', '成功率(%)', 'パス成功率', 1], ['1/3へのパス', '成功', '1/3へのパス成功', 1],
+  ['競り合い（全体）', '勝率(%)', '競り合い勝率', 1], ['リカバリー（ゾーン別）', '合計', 'リカバリー', 1], ['ボールロス（ゾーン別）', '合計', 'ボールロス', -1], ['ファウル', '', 'ファウル', -1]];
+
+function renderTrends() {
+  const d = S.data, ms = d.matches;
+  const opts = d.catList.map(cat => `<optgroup label="${esc(cat)}">${d.metrics.filter(c => c.cat === cat).map(c =>
+    `<option value="${esc(c.key)}" ${c.key === S.trendKey ? 'selected' : ''}>${esc(c.met)}${c.sub ? ' / ' + esc(c.sub) : ''}</option>`).join('')}</optgroup>`).join('');
+  const small = SMALL.filter(([a, b]) => has(a, b));
+  const heat = HEAT.filter(([a, b]) => has(a, b));
+  app.innerHTML = `
+  <section class="card">
+    <div class="card-head"><h2>指標の推移</h2><p>全${d.metrics.length}指標から選択・試合日順</p></div>
+    <div class="controls">
+      <select id="metric" aria-label="指標">${opts}</select>
+      <label><input type="checkbox" id="opt-opp" ${S.showOpp ? 'checked' : ''}> 対戦相手を表示</label>
+      <label><input type="checkbox" id="opt-avg" ${S.showAvg ? 'checked' : ''}> 自チーム平均線</label>
+    </div>
+    <div class="chart-box tall" style="margin-top:14px"><canvas id="t-main" role="img" aria-label="選択指標の推移"></canvas></div>
+    <div class="tbl-wrap" style="margin-top:12px" id="t-table"></div>
+  </section>
+  <section><div class="card-head" style="margin-bottom:10px"><h2>主要指標の推移</h2><p><i class="sw" style="background:var(--own)"></i>${esc(d.ownTeam)}　<i class="sw" style="background:var(--opp)"></i>対戦相手</p></div>
+    <div class="grid-3">${small.map(([a, b, l], i) => `<div class="card"><div class="mini-title"><h3>${l}</h3><span>平均 ${fmt(mean(ms.map(m => get(m.own, a, b))), a, b, a === 'xG' ? 2 : 1)}</span></div><div class="chart-box short"><canvas id="sm-${i}" role="img" aria-label="${l}の推移"></canvas></div></div>`).join('')}</div></section>
+  <section class="card"><div class="card-head"><h2>試合別 優劣マトリクス</h2>
+    <div class="scale"><span>相手優位</span><span class="bar"></span><span>自チーム優位</span></div></div>
+    <p class="muted" style="margin:-6px 0 12px;font-size:12px">上段＝${esc(d.ownTeam)}の値、下段＝相手との差。ボールロスとファウルは少ない方を優位として着色。</p>
+    <div class="tbl-wrap"><table class="heat"><thead><tr><th>試合</th><th>結果</th>${heat.map(h => `<th style="text-align:center">${h[2]}</th>`).join('')}</tr></thead><tbody>
+    ${ms.map(m => `<tr><td><a href="#match-${m.no}" style="color:inherit">${shortDate(m.date)} vs ${esc(m.opp.team)}</a></td><td><span class="pill ${m.result}">${RES[m.result]} ${m.gf}-${m.ga}</span></td>
+      ${heat.map(([a, b, , pol]) => { const x = get(m.own, a, b), y = get(m.opp, a, b); const r = x == null || y == null || (!x && !y) ? 0 : pol * (x - y) / Math.max(Math.abs(x), Math.abs(y));
+        const pctMix = Math.round(Math.min(1, Math.abs(r) * 1.4) * 45);
+        return `<td class="h" style="background:color-mix(in oklab, var(${r >= 0 ? '--pos' : '--neg'}) ${pctMix}%, var(--surface))"><span class="o">${fmt(x, a, b)}</span><span class="dd">${fmtDiff(x - y, a, b)}</span></td>`; }).join('')}</tr>`).join('')}
+    </tbody></table></div></section>`;
+
+  const drawMain = () => {
+    charts.filter(c => c.canvas.id === 't-main').forEach(c => { c.destroy(); charts.splice(charts.indexOf(c), 1); });
+    const col = d.metrics.find(c => c.key === S.trendKey) || d.metrics[0];
+    const own = ms.map(m => m.own.vals[col.key]), opp = ms.map(m => m.opp.vals[col.key]);
+    const ds = [lineDataset(d.ownTeam, own, T('own'))];
+    if (S.showOpp) ds.push(lineDataset('対戦相手', opp, T('opp'), { pointStyle: 'rectRot' }));
+    lineChart(document.getElementById('t-main'), { datasets: ds, met: col.met, sub: col.sub, avg: S.showAvg ? mean(own) : null });
+    document.getElementById('t-table').innerHTML = `<table><thead><tr><th>${esc(label(col.met, col.sub))}</th>${ms.map(m => `<th>${shortDate(m.date)}<br><span style="font-weight:400">${esc(m.opp.team)}</span></th>`).join('')}<th>平均</th></tr></thead>
+      <tbody><tr><td>${esc(d.ownTeam)}</td>${own.map(v => `<td>${fmt(v, col.met, col.sub)}</td>`).join('')}<td>${fmt(mean(own), col.met, col.sub, col.met === 'xG' ? 2 : 1)}</td></tr>
+      <tr><td>対戦相手</td>${opp.map(v => `<td>${fmt(v, col.met, col.sub)}</td>`).join('')}<td>${fmt(mean(opp), col.met, col.sub, col.met === 'xG' ? 2 : 1)}</td></tr></tbody></table>`;
+  };
+  drawMain();
+  document.getElementById('metric').addEventListener('change', e => { S.trendKey = e.target.value; drawMain(); });
+  document.getElementById('opt-opp').addEventListener('change', e => { S.showOpp = e.target.checked; drawMain(); });
+  document.getElementById('opt-avg').addEventListener('change', e => { S.showAvg = e.target.checked; drawMain(); });
+  small.forEach(([a, b, l], i) => lineChart(document.getElementById('sm-' + i), { legend: false, met: a, sub: b,
+    datasets: [lineDataset(d.ownTeam, ms.map(m => get(m.own, a, b)), T('own'), { pointRadius: 3 }), lineDataset('対戦相手', ms.map(m => get(m.opp, a, b)), T('opp'), { pointRadius: 3, pointStyle: 'rectRot', borderWidth: 1.5 })] }));
+}
+
+function renderImport(msg) {
+  const d = S.data;
+  app.innerHTML = `
+  <section class="card"><div class="card-head"><h2>データ取込</h2><p>Excel を読み込むと全ページが自動で再計算されます</p></div>
+    ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
+    <div class="drop" id="drop">
+      <strong>チームスタッツの .xlsx ファイルをここにドロップ</strong>
+      <span class="muted">またはファイルを選択（.xlsx / .xls / .csv）</span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <label class="btn" for="file">ファイルを選択</label>
+        ${!CLOUD && SAMPLE_AOA && S.source !== 'sample' ? '<button type="button" class="btn ghost" id="reset">サンプルデータに戻す</button>' : ''}
+      </div>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" class="sr-only">
+    </div>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">${CLOUD ? 'ファイルはブラウザ内で解析し、表のデータをあなた専用の Firestore に保存します。保存データは許可されたアカウント以外からは読み書きできません。' : 'ファイルはブラウザ内だけで解析され、外部には送信されません。読み込んだデータはこのタブを閉じるまで保持されます。'}</p>
+  </section>
+  <div class="grid">
+    ${!d ? `<section class="card"><div class="card-head"><h2>現在のデータ</h2></div><p class="muted" style="margin:0">まだデータがありません。チームスタッツの Excel を読み込むと、各ページが表示されます。</p></section>` : `<section class="card"><div class="card-head"><h2>現在のデータ</h2></div>
+      <table class="kv"><tbody>
+        <tr><td class="l">ソース</td><td>${S.source === 'sample' ? '同梱サンプル' : S.source === 'cloud' ? `${esc(S.fileName)}（クラウドに保存済み）` : esc(S.fileName)}</td></tr>
+        <tr><td class="l">自チーム</td><td>${esc(d.ownTeam)}</td></tr>
+        <tr><td class="l">試合数</td><td>${d.matches.length}</td></tr>
+        <tr><td class="l">指標列</td><td>${d.metrics.length}（大分類 ${d.catList.length}）</td></tr>
+        <tr><td class="l">期間</td><td>${esc(d.matches[0].date)} 〜 ${esc(d.matches[d.matches.length - 1].date)}</td></tr>
+      </tbody></table>
+      <h3 style="margin:16px 0 8px">指標の分類</h3>
+      <ul class="spec">${d.catList.map(c => { const g = [...new Set(d.metrics.filter(x => x.cat === c).map(x => x.grp))]; return `<li><b>${esc(c)}</b> <span class="muted">— ${g.map(esc).join('、')}</span></li>`; }).join('')}</ul>
+    </section>`}
+    <section class="card"><div class="card-head"><h2>対応フォーマット</h2></div>
+      <ol class="spec">
+        <li>大分類の行（例：「1 結果」「2 ボール保持（攻撃）」）。最初の大分類は試合情報。</li>
+        <li>A列が「日付」の見出し行。試合情報の列名（日付・試合・大会・試合時間(分)・チーム・区分・フォーメーション）と小分類（例：「1-1 得点側」）。</li>
+        <li>指標名の行（例：「シュート」「パス」）。結合セルは右方向に引き継ぎ。</li>
+        <li>内訳の行（例：「合計」「成功」「成功率(%)」）。</li>
+        <li>以降、1試合につき「自チーム」「対戦相手」の2行。「平均」で始まる行や空行で終了。</li>
+      </ol>
+      ${d && d.notes.length ? `<h3 style="margin:16px 0 8px">ファイル内の注記</h3><ul class="notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+    </section>
+  </div>`;
+  const drop = document.getElementById('drop'), input = document.getElementById('file');
+  input.addEventListener('change', () => input.files[0] && readFile(input.files[0]));
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+  const reset = document.getElementById('reset');
+  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample'); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
+}
+
+function readFile(file) {
+  const fr = new FileReader();
+  fr.onload = async () => {
+    try {
+      const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: true });
+      let parsed = null, aoa = null, lastErr = null;
+      for (const name of wb.SheetNames) {
+        try {
+          aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: true })
+            .map(r => r.map(v => (v instanceof Date ? toISODate(v) : v)));
+          parsed = parseSheet(aoa); break;
+        } catch (e) { lastErr = e; }
+      }
+      if (!parsed) throw lastErr || new Error('読み込めるシートがありません。');
+      if (CLOUD) await saveCloud(aoa, file.name);
+      loadData(parsed, CLOUD ? 'cloud' : 'upload', file.name); updateBrand();
+      toast(`${file.name} から ${parsed.matches.length}試合を読み込みました${CLOUD ? '（クラウドに保存）' : ''}`);
+      location.hash = '#overview'; if (location.hash === '#overview') route();
+    } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
+  };
+  fr.onerror = () => renderImport({ type: 'err', text: 'ファイルを開けませんでした。別のファイルで試してください。' });
+  fr.readAsArrayBuffer(file);
+}
+
+/* ============ Factor analysis: correlation / multiple regression ============ */
+// 過程指標（得点に至る前段のチーム行動）。シュート・xG は媒介変数なので説明変数に含めない
+const PROCESS = [
+  ['ボール保持率', 'ボール保持率(%)', ''], ['パス数', 'パス', '合計'], ['パス成功率', 'パス', '成功率(%)'],
+  ['前線へのパス成功率', '前線へのパス', '成功率(%)'], ['ロングパス', 'ロングパス', '合計'], ['1/3へのパス成功', '1/3へのパス', '成功'],
+  ['縦パス成功', '縦パス', '成功'], ['スマートパス', 'スマートパス', '合計'], ['クロス', 'クロス', '合計'],
+  ['ポジショナル攻撃', 'ポジショナルアタック', '合計'], ['カウンター攻撃', 'カウンターアタック', '合計'],
+  ['ボールロス', 'ボールロス（ゾーン別）', '合計'], ['ボールロス（低）', 'ボールロス（ゾーン別）', '低'],
+  ['リカバリー', 'リカバリー（ゾーン別）', '合計'], ['リカバリー（高）', 'リカバリー（ゾーン別）', '高'],
+  ['インターセプト', 'インターセプト', ''], ['クリア', 'クリア', ''], ['競り合い勝率', '競り合い（全体）', '勝率(%)'],
+  ['空中戦勝率', '空中競り合い', '勝率(%)'], ['守り競り合い勝率', '守り競り合い', '勝率(%)'], ['ファウル', 'ファウル', ''], ['CK', 'CK', '合計'],
+];
+const TARGETS = [['xG', 'xG'], ['GF', '得点'], ['xGA', '被xG'], ['GA', '失点']];
+const STRONG_DEFAULT = ['Kyoto Sanga', 'Gamba Osaka', 'Kashima Antlers'];
+const N_PERM = 1000;
+
+/* --- small linear algebra / distributions --- */
+function invert(A) {
+  const n = A.length, M = A.map((r, i) => [...r, ...A.map((_, j) => (i === j ? 1 : 0))]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (Math.abs(M[p][c]) < 1e-10) return null;
+    [M[c], M[p]] = [M[p], M[c]];
+    const d = M[c][c];
+    for (let j = 0; j < 2 * n; j++) M[c][j] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c]; if (f) for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[c][j]; }
+  }
+  return M.map(r => r.slice(n));
+}
+const designX = cols => cols[0].map((_, i) => [1, ...cols.map(c => c[i])]);
+const xtx = X => X[0].map((_, a) => X[0].map((_, b) => X.reduce((s, r) => s + r[a] * r[b], 0)));
+function ols(cols, y) {
+  const X = designX(cols), n = X.length, k = X[0].length, A = invert(xtx(X));
+  if (!A) return null;
+  const Xty = X[0].map((_, a) => X.reduce((s, r, i) => s + r[a] * y[i], 0));
+  const b = A.map(row => row.reduce((s, v, j) => s + v * Xty[j], 0));
+  const fit = X.map(r => r.reduce((s, v, j) => s + v * b[j], 0));
+  const sse = y.reduce((s, v, i) => s + (v - fit[i]) ** 2, 0), my = mean(y), sst = y.reduce((s, v) => s + (v - my) ** 2, 0);
+  const df = n - k, s2 = sse / df;
+  const se = b.map((_, j) => Math.sqrt(s2 * A[j][j]));
+  const p = b.map((v, j) => (df > 0 && se[j] > 0 ? pT(Math.abs(v / se[j]), df) : NaN));
+  const r2 = sst ? 1 - sse / sst : 0;
+  return { b, se, p, r2, adj: 1 - (1 - r2) * (n - 1) / df, resid: y.map((v, i) => v - fit[i]) };
+}
+// 一個抜き交差検証の残差 = R·y（R の各行 = (I − H) の行 / (1 − h_ii)）
+function looOperator(cols) {
+  const X = designX(cols), A = invert(xtx(X));
+  if (!A) return null;
+  const AX = X.map(r => A.map(row => row.reduce((s, v, j) => s + v * r[j], 0)));
+  const H = X.map((ri, i) => X.map((_, j) => AX[j].reduce((s, v, a) => s + v * ri[a], 0)));
+  const R = [];
+  for (let i = 0; i < X.length; i++) {
+    const d = 1 - H[i][i];
+    if (d < 1e-9) return null;
+    R.push(H[i].map((h, j) => ((i === j ? 1 : 0) - h) / d));
+  }
+  return R;
+}
+const looRmse = (R, y) => Math.sqrt(R.reduce((s, row) => { const e = row.reduce((a, v, j) => a + v * y[j], 0); return s + e * e; }, 0) / y.length);
+function lgamma(z) {
+  const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let x = z, t = z + 5.5, s = 1.000000000190015;
+  t -= (z + 0.5) * Math.log(t);
+  for (const c of g) s += c / ++x;
+  return -t + Math.log(2.5066282746310005 * s / z);
+}
+function betacf(a, b, x) {
+  let c = 1, d = 1 - (a + b) * x / (a + 1); d = 1 / (Math.abs(d) < 1e-30 ? 1e-30 : d); let h = d;
+  for (let m = 1; m <= 200; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((a + m2 - 1) * (a + m2));
+    d = 1 + aa * d; d = 1 / (Math.abs(d) < 1e-30 ? 1e-30 : d); c = 1 + aa / c; if (Math.abs(c) < 1e-30) c = 1e-30; h *= d * c;
+    aa = -(a + m) * (a + b + m) * x / ((a + m2) * (a + m2 + 1));
+    d = 1 + aa * d; d = 1 / (Math.abs(d) < 1e-30 ? 1e-30 : d); c = 1 + aa / c; if (Math.abs(c) < 1e-30) c = 1e-30;
+    const del = d * c; h *= del;
+    if (Math.abs(del - 1) < 3e-12) break;
+  }
+  return h;
+}
+function betai(a, b, x) {
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+  return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+}
+const pT = (t, df) => betai(df / 2, 0.5, df / (df + t * t));   // 両側 p 値
+function rCrit(n, alpha = .05) {
+  const df = n - 2; let lo = 0, hi = 200;
+  for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (pT(m, df) > alpha) lo = m; else hi = m; }
+  return lo / Math.sqrt(df + lo * lo);
+}
+const corr = (x, y) => {
+  const mx = mean(x), my = mean(y); let n = 0, a = 0, b = 0;
+  x.forEach((v, i) => { n += (v - mx) * (y[i] - my); a += (v - mx) ** 2; b += (y[i] - my) ** 2; });
+  return a && b ? n / Math.sqrt(a * b) : 0;
+};
+const residOn = (y, z) => ols([z], y).resid;
+function mulberry32(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function shuffled(arr, rnd) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* --- the analysis itself --- */
+function runAnalysis() {
+  const key = [...S.strong].sort().join('|') + '#' + S.source + S.fileName + S.data.matches.length;
+  if (S.ana && S.ana.key === key) return S.ana;
+  const rows = [];
+  for (const m of S.data.matches) for (const [a, b] of [[m.own, m.opp], [m.opp, m.own]])
+    rows.push({ m, isOwn: a === m.own, team: a.team, side: a,
+      GF: get(a, 'ゴール'), GA: get(b, 'ゴール'), xG: get(a, 'xG'), xGA: get(b, 'xG'),
+      strength: (S.strong.has(a.team) ? 1 : 0) - (S.strong.has(b.team) ? 1 : 0) });
+  const n = rows.length;
+  const P = PROCESS.map(([name, met, sub]) => ({ name, met, sub, v: rows.map(r => get(r.side, met, sub)) }))
+    .filter(p => p.v.every(v => v != null) && sd(p.v) > 0);
+  const Y = {};
+  for (const [t] of TARGETS) { const y = rows.map(r => r[t]); if (y.every(v => v != null) && sd(y) > 0) Y[t] = y; }
+  const z = rows.map(r => r.strength), hasStrength = sd(z) > 0;
+  const critR = rCrit(n), critP = rCrit(n - 1);
+
+  // 1. 相関（補正前・チーム力で補正した偏相関・チーム力との相関）
+  const ind = P.map(p => {
+    const o = { ...p, raw: {}, partial: {}, rS: hasStrength ? corr(p.v, z) : null };
+    const pv = hasStrength ? residOn(p.v, z) : null;
+    for (const t in Y) { o.raw[t] = corr(p.v, Y[t]); o.partial[t] = hasStrength ? corr(pv, residOn(Y[t], z)) : null; }
+    return o;
+  });
+  // 2. Jets 単独（n = 試合数）
+  const ownIdx = rows.map((r, i) => (r.isOwn ? i : -1)).filter(i => i >= 0);
+  const jets = { n: ownIdx.length, crit: ownIdx.length > 3 ? rCrit(ownIdx.length) : 1, r: {} };
+  for (const t of ['GA', 'GF']) if (Y[t]) jets.r[t] = P.map(p => ({ name: p.name, r: corr(ownIdx.map(i => p.v[i]), ownIdx.map(i => Y[t][i])) }));
+  // 3. 得点 ~ xG
+  const gx = Y.GF && Y.xG ? ols([Y.xG], Y.GF) : null;
+  // 4. 重回帰（説明変数 1〜2 個の全探索）+ 一個抜き交差検証 + 並べ替え検定
+  const combos = [];
+  P.forEach((_, i) => combos.push([i]));
+  P.forEach((_, i) => P.forEach((_, j) => { if (j > i) combos.push([i, j]); }));
+  const rnd = mulberry32(20261028);
+  const conds = [];
+  for (const [t, tl] of TARGETS) {
+    if (!Y[t]) continue;
+    for (const adj of hasStrength ? [false, true] : [false]) {
+      const ctrl = adj ? [z] : [];
+      const ops = combos.map(c => ({ c, R: looOperator([...c.map(i => P[i].v), ...ctrl]) })).filter(o => o.R);
+      const R0 = ctrl.length ? looOperator(ctrl) : null;
+      const nullOf = y => (R0 ? looRmse(R0, y) : Math.sqrt(y.reduce((s, v, i) => { const m = (y.reduce((a, b) => a + b, 0) - v) / (n - 1); return s + (v - m) ** 2; }, 0) / n));
+      const y = Y[t], null0 = nullOf(y);
+      const ranked = ops.map(o => ({ c: o.c, rmse: looRmse(o.R, y) })).sort((a, b) => a.rmse - b.rmse);
+      const best = ranked[0], obs = best.rmse / null0;
+      let hit = 0;
+      for (let k = 0; k < N_PERM; k++) {
+        const yp = shuffled(y, rnd), base = nullOf(yp);
+        let m = Infinity;
+        for (const o of ops) { const v = looRmse(o.R, yp); if (v < m) m = v; }
+        if (m / base <= obs) hit++;
+      }
+      const top = ranked.slice(0, 5).map(r => {
+        const cols = [...r.c.map(i => P[i].v), ...ctrl], names = [...r.c.map(i => P[i].name), ...(adj ? ['チーム力'] : [])];
+        const f = ols(cols, y), sy = sd(y);
+        const vars = names.map((nm, j) => {
+          const others = cols.filter((_, q) => q !== j);
+          const vif = others.length ? 1 / (1 - ols(others, cols[j]).r2) : 1;
+          return { name: nm, b: f.b[j + 1], beta: f.b[j + 1] * sd(cols[j]) / sy, p: f.p[j + 1], vif };
+        });
+        return { names: r.c.map(i => P[i].name), rmse: r.rmse, gain: 1 - r.rmse / null0, r2: f.r2, adj: f.adj, vars };
+      });
+      conds.push({ t, tl, adj, null0, top, pPerm: (hit + 1) / (N_PERM + 1), nModels: ops.length });
+    }
+  }
+  const sig = conds.filter(c => c.pPerm < .05);
+  const survivors = new Set(sig.flatMap(c => c.top[0].names));
+  S.ana = { key, rows, n, P, ind, jets, gx, conds, sig, survivors, hasStrength, critR, critP, nCombos: combos.length };
+  return S.ana;
+}
+
+function verdictOf(o, A) {
+  if (!A.hasStrength || o.partial.xG == null) {
+    return Math.abs(o.raw.xG) >= A.critR ? ['候補（未補正）', ''] : ['関係は確認できない', ''];
+  }
+  const p = o.partial.xG, pa = o.partial.xGA;
+  if (p >= A.critP && pa != null && pa >= A.critP) return ['攻め合いの指標', ''];
+  if (p >= A.critP && A.survivors.has(o.name)) return ['参考にする（仮説）', 'good'];
+  if (p >= A.critP) return ['候補', 'good'];
+  if (Math.abs(o.raw.xG) >= A.critR && Math.abs(o.rS) >= .7) return ['チーム力の影響', 'bad'];
+  if (p <= -A.critP) return ['負の関係', 'bad'];
+  return ['関係は確認できない', ''];
+}
+
+function analysisInsights(A) {
+  const out = [];
+  if (A.gx) out.push(['good', '得点とxG', `xGで得点のばらつきの${Math.round(A.gx.r2 * 100)}%を説明（傾き ${A.gx.b[1].toFixed(2)}、p = ${A.gx.p[1].toFixed(3)}、n = ${A.n}）。`]);
+  out.push([A.sig.length ? 'good' : 'bad', '重回帰', `偶然と区別できた最良モデルは ${A.sig.length} / ${A.conds.length} 条件${A.sig.length ? '：' + A.sig.map(c => `${c.tl}${c.adj ? '（チーム力補正）' : ''} ~ ${c.top[0].names.join(' ＋ ')}（p = ${c.pPerm.toFixed(3)}）`).join('、') : ''}。`]);
+  if (A.hasStrength) {
+    const keep = A.ind.filter(o => o.partial.xG != null && o.partial.xG >= A.critP).map(o => o.name);
+    const conf = A.ind.filter(o => Math.abs(o.rS) >= .8).map(o => o.name);
+    out.push(['', '補正後も残る', keep.length ? `チーム力を補正してもxGとの相関が有意水準（|r| ≥ ${A.critP.toFixed(2)}）を超える指標：${keep.join('、')}。` : 'チーム力を補正すると、xGと有意な相関を持つ指標はありません。']);
+    if (conf.length) out.push(['bad', '交絡', `チーム力とほぼ同じ動きをする指標（|r| ≥ 0.80）：${conf.join('、')}。原因として扱わない。`]);
+  } else {
+    out.push(['bad', 'チーム力未設定', '上位グループのチームを選ぶと、チーム力で補正した分析が加わります。']);
+  }
+  const own = A.rows.filter(r => r.isOwn);
+  if (own.every(r => r.xGA != null)) {
+    const ga = own.reduce((s, r) => s + r.GA, 0), xga = own.reduce((s, r) => s + r.xGA, 0);
+    out.push([ga - xga <= 0 ? 'good' : 'bad', '失点と被xG', `${S.data.ownTeam}の失点 ${ga} は被xG ${xga.toFixed(2)} に対し ${fmtDiff(ga - xga, 'xG')}。`]);
+  }
+  return out;
+}
+
+const refLines = { id: 'refLines', afterDatasetsDraw(chart, _a, o) {
+  if (!o || !o.lines || !o.lines.length) return;
+  const s = chart.scales.x, { top: y0, bottom: y1 } = chart.chartArea, ctx = chart.ctx;
+  ctx.save(); ctx.strokeStyle = T('muted'); ctx.lineWidth = 1.25; ctx.setLineDash([4, 4]);
+  for (const v of o.lines) { const x = s.getPixelForValue(v); ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke(); }
+  ctx.restore(); } };
+Chart.register(refLines);
+
+function hBarChart(el, { labels, values, colors, min, max, lines, fmtV, title }) {
+  return mk(el, { type: 'bar', data: { labels, datasets: [{ label: title, data: values, backgroundColor: colors, borderRadius: 3, borderSkipped: false, maxBarThickness: 14, categoryPercentage: .8, barPercentage: .9 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, refLines: { lines }, tooltip: { callbacks: { label: c => ` ${fmtV(c.raw)}` } } },
+      scales: { x: { min, max, grid: { color: T('grid') }, border: { display: false }, ticks: { maxTicksLimit: 6 } }, y: { grid: { display: false }, ticks: { font: { size: 11 }, autoSkip: false } } } } });
+}
+
+function dumbbellSVG(A, t) {
+  const list = A.ind.filter(o => o.raw[t] != null).map(o => ({ name: o.name, raw: o.raw[t], partial: o.partial[t] }))
+    .sort((a, b) => (b.partial ?? b.raw) - (a.partial ?? a.raw));
+  const W = 640, x0 = 150, x1 = 560, lo = -1, hi = 1, X = v => x0 + (v - lo) / (hi - lo) * (x1 - x0), step = 22, y0 = 18;
+  const H = y0 + list.length * step + 30, crit = A.hasStrength ? A.critP : A.critR;
+  const ticks = [-1, -0.5, 0, 0.5, 1].map(v => `<line x1="${X(v)}" x2="${X(v)}" y1="6" y2="${H - 26}" style="stroke:var(${v === 0 ? '--muted' : '--grid'})"/><text x="${X(v)}" y="${H - 10}" text-anchor="middle" class="svg-tick">${v.toFixed(1)}</text>`).join('');
+  const refs = [crit, -crit].map(v => `<line x1="${X(v)}" x2="${X(v)}" y1="6" y2="${H - 26}" style="stroke:var(--muted)" stroke-dasharray="4 4"/>`).join('');
+  const rowsSvg = list.map((o, i) => {
+    const y = y0 + i * step, end = o.partial ?? o.raw, on = end >= crit;
+    const both = o.partial != null;
+    return `<g><text x="${x0 - 10}" y="${y + 4}" text-anchor="end" class="svg-lbl${on ? ' on' : ''}">${esc(o.name)}</text>
+      ${both ? `<line x1="${X(o.raw)}" x2="${X(o.partial)}" y1="${y}" y2="${y}" style="stroke:var(--bar-muted)" stroke-width="2"/>
+      <circle cx="${X(o.raw)}" cy="${y}" r="4.5" style="fill:var(--surface);stroke:var(--bar-strong)" stroke-width="1.5"><title>${esc(o.name)}：補正前 r = ${o.raw.toFixed(2)}</title></circle>` : ''}
+      <circle cx="${X(end)}" cy="${y}" r="5" style="fill:var(${on ? '--hl' : '--bar-strong'})"><title>${esc(o.name)}：${both ? '補正後' : ''} r = ${end.toFixed(2)}</title></circle>
+      <text x="${W - 4}" y="${y + 4}" text-anchor="end" class="svg-val${on ? ' on' : ''}">${both ? `${o.raw.toFixed(2)} → ${o.partial.toFixed(2)}` : o.raw.toFixed(2)}</text></g>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="dumbbell" role="img" aria-label="${t}との相関（補正前後）">${ticks}${refs}${rowsSvg}</svg>`;
+}
+
+function renderAnalysis() {
+  const d = S.data, A = runAnalysis();
+  const teams = [...new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]))];
+  const condLabel = c => `${c.tl}｜${c.adj ? 'チーム力補正' : '補正なし'}`;
+  S.anaTarget = S.anaTarget && A.ind.length && A.ind[0].raw[S.anaTarget] != null ? S.anaTarget : 'xG';
+  S.anaCond = Math.min(S.anaCond || 0, A.conds.length - 1);
+  S.anaJets = S.anaJets || 'GA';
+  const steps = [
+    ['データ整理', `${A.n}行（${d.matches.length}試合 × 2チーム）`],
+    ['因果の順序', '過程指標 → チャンス → 得点。シュート・xGは除外'],
+    ['単相関', `過程指標 ${A.P.length}個 × 目的変数4種`],
+    ['交絡の確認', A.hasStrength ? 'チーム力（上位グループの差）で補正' : 'チーム力が未設定'],
+    ['重回帰', `説明変数1〜2個の全${A.nCombos}モデル × ${A.conds.length}条件`],
+    ['検証', `一個抜き交差検証 ＋ 並べ替え検定 ${N_PERM}回`],
+  ];
+  app.innerHTML = `
+  <section class="hero" style="grid-template-columns:1fr">
+    <div><div class="eyebrow">要因分析 · 自動計算</div><h1>得点・失点と指標の関係</h1>
+      <div class="meta">両チーム分の${A.n}行で相関と重回帰を計算。回帰で分かるのは関連であり、因果の確定ではありません。</div></div>
+  </section>
+  <section class="card"><div class="card-head"><h2>分析の流れ</h2><p>上から順に判断</p></div>
+    <ol class="flow">${steps.map(([a, b]) => `<li><b>${a}</b><span>${esc(b)}</span></li>`).join('')}</ol></section>
+  <section class="card"><div class="card-head"><h2>チーム力の区分</h2><p>上位グループを選ぶと、その差で補正します（現在 ${S.strong.size}チーム）</p></div>
+    <div class="team-chips">${teams.map(t => `<button type="button" class="tchip" data-team="${esc(t)}" aria-pressed="${S.strong.has(t)}">${esc(t)}</button>`).join('')}</div></section>
+  <section class="card"><div class="card-head"><h2>自動分析サマリー</h2><p>数値から機械的に導いた所見</p></div>${insightsHTML(analysisInsights(A))}</section>
+  <div class="grid">
+    <section class="card"><div class="card-head"><h2>補正前後の相関</h2>
+      <div class="seg" role="group" aria-label="目的変数">${TARGETS.filter(([t]) => A.ind[0] && A.ind[0].raw[t] != null).map(([t, l]) => `<button type="button" data-ana-t="${t}" aria-pressed="${S.anaTarget === t}">${l}</button>`).join('')}</div></div>
+      <div class="legend-inline"><span><i class="ring"></i>補正前</span><span><i class="dot-f"></i>${A.hasStrength ? 'チーム力で補正した偏相関' : '相関'}</span><span><i class="dash"></i>5%有意の目安 |r| = ${(A.hasStrength ? A.critP : A.critR).toFixed(2)}</span></div>
+      <div class="tbl-wrap">${dumbbellSVG(A, S.anaTarget)}</div></section>
+    <section class="card"><div class="card-head"><h2>得点と xG</h2><p>${A.gx ? `R² = ${A.gx.r2.toFixed(2)}、点線 = 得点とxGが等しい線` : 'xG列がありません'}</p></div>
+      <div class="chart-box tall"><canvas id="a-scatter" role="img" aria-label="得点とxGの散布図"></canvas></div></section>
+  </div>
+  <section class="card"><div class="card-head"><h2>偶然と区別できるか（並べ替え検定）</h2><p>各条件の最良モデル。p < 0.05 を強調、点線 = 0.05</p></div>
+    <div class="chart-box" style="height:${60 + A.conds.length * 46}px"><canvas id="a-perm" role="img" aria-label="条件別の並べ替え検定p値"></canvas></div></section>
+  <div class="grid">
+    <section class="card"><div class="card-head"><h2>${esc(d.ownTeam)} ${A.jets.n}試合の単相関</h2>
+      <div class="seg" role="group" aria-label="目的変数">${['GA', 'GF'].filter(t => A.jets.r[t]).map(t => `<button type="button" data-ana-j="${t}" aria-pressed="${S.anaJets === t}">${t === 'GA' ? '失点' : '得点'}</button>`).join('')}</div></div>
+      <p class="muted small">点線 = 5%有意の臨界値 |r| = ${A.jets.crit.toFixed(2)}（n = ${A.jets.n}）。${A.P.length}回検定すると偶然でも約${(A.P.length * .05).toFixed(1)}件は有意になります。</p>
+      <div class="chart-box" style="height:${40 + A.P.length * 20}px"><canvas id="a-jets" role="img" aria-label="Jets単独の相関"></canvas></div></section>
+    <section class="card"><div class="card-head"><h2>チーム力との相関</h2><p>${A.hasStrength ? '|r| ≥ 0.80 を強調。点線 = 5%有意の臨界値' : '上位グループを選ぶと表示'}</p></div>
+      ${A.hasStrength ? `<div class="chart-box" style="height:${40 + A.P.length * 20}px"><canvas id="a-strength" role="img" aria-label="チーム力との相関"></canvas></div>` : ''}</section>
+  </div>
+  <section class="card"><div class="card-head"><h2>重回帰モデルの詳細</h2>
+    <select id="ana-cond" aria-label="条件">${A.conds.map((c, i) => `<option value="${i}" ${i === S.anaCond ? 'selected' : ''}>${condLabel(c)}</option>`).join('')}</select></div>
+    <div id="ana-models"></div></section>
+  <section class="card"><div class="card-head"><h2>指標の評価</h2><p>xGとの関係を基準に自動判定</p></div>
+    <div class="tbl-wrap"><table><thead><tr><th class="l">指標</th><th class="l">判定</th><th>xGとの相関</th><th>補正後</th><th>被xG（補正後）</th><th>チーム力との相関</th></tr></thead><tbody>
+    ${A.ind.slice().sort((a, b) => (b.partial.xG ?? b.raw.xG ?? 0) - (a.partial.xG ?? a.raw.xG ?? 0)).map(o => { const [v, cls] = verdictOf(o, A); const f = x => (x == null ? '–' : x.toFixed(2));
+      return `<tr><td class="l">${esc(o.name)}</td><td class="l"><span class="tag ${cls}">${v}</span></td><td>${f(o.raw.xG)}</td><td>${f(o.partial.xG)}</td><td>${f(o.partial.xGA)}</td><td>${f(o.rS)}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <p class="muted small">判定基準：補正後のxGとの相関が有意水準以上 → 候補。うち有意な最良モデルに含まれる → 参考にする（仮説）。被xGとも正に相関 → 攻め合いの指標。補正前は有意でチーム力との相関が0.7以上 → チーム力の影響。</p></section>
+  <details class="card cat"><summary>この分析の限界</summary>
+    <ul class="notes">
+      <li>試合数が少なく、説明変数は2個までに制限しています。同じ試合の2行は独立ではないため、p値は小さく出やすくなります。</li>
+      <li>チーム力は「上位グループかどうか」の二値です。スコア状況（リード・ビハインド）による逆因果は補正していません。</li>
+      <li>得点は回数データですが、最小二乗法で近似しています。件数指標は90分換算していません。</li>
+      <li>並べ替え検定は乱数を使うため、別の計算環境とはp値が小数点以下2〜3桁目で異なることがあります（このページでは乱数の種を固定）。</li>
+    </ul></details>`;
+
+  app.querySelectorAll('.tchip').forEach(b => b.addEventListener('click', () => {
+    const t = b.dataset.team; S.strong.has(t) ? S.strong.delete(t) : S.strong.add(t); route();
+  }));
+  app.querySelectorAll('[data-ana-t]').forEach(b => b.addEventListener('click', () => { S.anaTarget = b.dataset.anaT; route(); }));
+  app.querySelectorAll('[data-ana-j]').forEach(b => b.addEventListener('click', () => { S.anaJets = b.dataset.anaJ; route(); }));
+  const drawModels = () => {
+    const c = A.conds[S.anaCond];
+    const f = (v, dg = 3) => (v == null || isNaN(v) ? '–' : v.toFixed(dg));
+    document.getElementById('ana-models').innerHTML = `<p class="muted small" style="margin:0 0 10px">基準（${c.adj ? 'チーム力のみ' : '平均値のみ'}）の交差検証誤差 ${c.null0.toFixed(3)}。この条件の最良モデルの並べ替え検定 p = ${c.pPerm.toFixed(3)}（${c.nModels}モデルから選択）。</p>
+      <div class="tbl-wrap"><table><thead><tr><th>順位</th><th class="l">説明変数</th><th>R²</th><th>調整R²</th><th>誤差の減少</th><th class="l">係数 b（標準化β, p, VIF）</th></tr></thead><tbody>
+      ${c.top.map((m, i) => `<tr><td>${i + 1}</td><td class="l">${m.names.map(esc).join(' ＋ ')}</td><td>${f(m.r2, 2)}</td><td>${f(m.adj, 2)}</td><td>${(m.gain * 100).toFixed(0)}%</td>
+        <td class="l small">${m.vars.map(v => `${esc(v.name)}: ${v.b >= 0 ? '+' : ''}${f(v.b)}（${f(v.beta, 2)}, ${f(v.p)}, ${f(v.vif, 1)}）`).join('<br>')}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  };
+  drawModels();
+  document.getElementById('ana-cond').addEventListener('change', e => { S.anaCond = +e.target.value; drawModels(); });
+
+  const hl = T('hl'), barm = T('bar-strong');
+  if (A.gx) {
+    const pts = side => A.rows.filter(r => r.isOwn === (side === 'own')).map(r => ({ x: r.xG, y: r.GF, r }));
+    const mx = Math.max(...A.rows.map(r => Math.max(r.xG, r.GF))) + .5;
+    mk(document.getElementById('a-scatter'), { type: 'scatter', data: { datasets: [
+      { label: d.ownTeam, data: pts('own'), backgroundColor: T('own'), pointRadius: 6, pointHoverRadius: 8, pointBorderColor: T('surface'), pointBorderWidth: 1.5 },
+      { label: '対戦相手', data: pts('opp'), backgroundColor: T('opp'), pointRadius: 6, pointHoverRadius: 8, pointStyle: 'rectRot', pointBorderColor: T('surface'), pointBorderWidth: 1.5 },
+      { type: 'line', label: '得点 = xG', data: [{ x: 0, y: 0 }, { x: mx, y: mx }], borderColor: T('muted'), borderDash: [5, 4], borderWidth: 1.25, pointRadius: 0, pointHoverRadius: 0 } ] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legendTop,
+        tooltip: { filter: c => c.datasetIndex < 2, callbacks: { label: c => ` ${c.raw.r.team}（${shortDate(c.raw.r.m.date)}）：${c.raw.y}得点 / xG ${c.raw.x.toFixed(2)}` } } },
+        scales: { x: { min: 0, max: Math.ceil(mx), title: { display: true, text: 'xG' }, grid: { color: T('grid') } }, y: { min: 0, max: Math.ceil(mx), title: { display: true, text: '得点' }, grid: { color: T('grid') }, ticks: { precision: 0 } } } } });
+  }
+  hBarChart(document.getElementById('a-perm'), { title: 'p値', labels: A.conds.map(c => [condLabel(c), c.top[0].names.join(' ＋ ')]), values: A.conds.map(c => c.pPerm),
+    colors: A.conds.map(c => (c.pPerm < .05 ? hl : barm)), min: 0, max: Math.max(.8, ...A.conds.map(c => c.pPerm)), lines: [.05], fmtV: v => `p = ${v.toFixed(3)}` });
+  const jr = (A.jets.r[S.anaJets] || []).slice().sort((a, b) => a.r - b.r);
+  if (jr.length) hBarChart(document.getElementById('a-jets'), { title: 'r', labels: jr.map(o => o.name), values: jr.map(o => o.r),
+    colors: jr.map(o => (Math.abs(o.r) >= A.jets.crit ? hl : barm)), min: -1, max: 1, lines: [-A.jets.crit, A.jets.crit], fmtV: v => `r = ${v.toFixed(2)}` });
+  if (A.hasStrength) {
+    const sr = A.ind.slice().sort((a, b) => b.rS - a.rS);
+    hBarChart(document.getElementById('a-strength'), { title: 'r', labels: sr.map(o => o.name), values: sr.map(o => o.rS),
+      colors: sr.map(o => (Math.abs(o.rS) >= .8 ? hl : barm)), min: -1, max: 1, lines: [-A.critR, A.critR], fmtV: v => `r = ${v.toFixed(2)}` });
+  }
+}
+
+/* ============ Router ============ */
+let toastTimer;
+function toast(t) { const el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200); }
+function updateBrand() { document.getElementById('brand-team').textContent = S.data ? S.data.ownTeam : ''; }
+function route() {
+  destroyCharts(); applyChartTheme();
+  const h = location.hash.replace('#', '');
+  let page = 'overview', no = 1;
+  const mm = h.match(/^match-(\d+)$/);
+  if (mm) { page = 'match'; no = Math.min(Math.max(1, +mm[1]), S.data ? S.data.matches.length : 1); }
+  else if (h === 'trends' || h === 'import' || h === 'analysis') page = h;
+  if (!S.data) page = 'import';
+  document.querySelector('.tabs').hidden = false;
+  document.querySelectorAll('.tabs a').forEach(a => { if (a.dataset.route === page) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  if (page === 'match') document.querySelector('.tabs a[data-route="match"]').setAttribute('href', '#match-' + no);
+  ({ overview: renderOverview, match: () => renderMatch(no), trends: renderTrends, analysis: renderAnalysis, import: () => renderImport() })[page]();
+}
+function rerenderForTheme() { rerenderSafe(); }
+
+/* ============ Boot: sample mode (artifact) or cloud mode (Firebase) ============ */
+const CLOUD = typeof window.firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+let cloudUser = null;
+const dataDoc = () => firebase.firestore().doc(`users/${cloudUser.uid}/datasets/current`);
+async function saveCloud(aoa, fileName) {
+  const json = JSON.stringify(aoa);
+  if (json.length > 900000) throw new Error('ファイルが大きすぎて保存できません（上限 約900KB）。不要なシートや行を削除してください。');
+  try {
+    await dataDoc().set({ aoa: json, fileName, uploadedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  } catch (e) {
+    throw new Error(e.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : `クラウドに保存できませんでした（${e.code || e.message}）。`);
+  }
+}
+function renderGate(state, err) {
+  destroyCharts();
+  document.querySelector('.tabs').hidden = true;
+  const who = cloudUser ? esc(cloudUser.email || '') : '';
+  const body = {
+    loading: '<p class="muted">確認しています…</p>',
+    signin: `<p>このダッシュボードは、許可されたアカウントだけが利用できます。</p><button type="button" class="btn" id="signin">Google でログイン</button>${err ? `<div class="msg err" style="margin-top:14px">ログインできませんでした（${esc(err.code || err.message)}）。もう一度お試しください。</div>` : ''}`,
+    denied: `<div class="msg err">${who} にはアクセス権がありません。許可されたアカウントでログインし直してください。</div><button type="button" class="btn ghost" id="switch" style="margin-top:14px">別のアカウントでログイン</button>`,
+    error: `<div class="msg err">データを読み込めませんでした（${esc(err ? err.code || err.message : '')}）。通信状態を確認して、再読み込みしてください。</div>`,
+  }[state];
+  app.innerHTML = `<section class="card gate"><div class="eyebrow">Match Lens</div><h1 style="font-family:var(--font-display);font-size:34px;margin:4px 0 12px">ログイン</h1>${body}</section>`;
+  const si = document.getElementById('signin'); if (si) si.addEventListener('click', signIn);
+  const sw = document.getElementById('switch'); if (sw) sw.addEventListener('click', async () => { await firebase.auth().signOut(); signIn(); });
+}
+async function signIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try { await firebase.auth().signInWithPopup(provider); }
+  catch (e) {
+    if (['auth/popup-blocked', 'auth/operation-not-supported-in-environment', 'auth/cancelled-popup-request'].includes(e.code)) return firebase.auth().signInWithRedirect(provider);
+    if (e.code !== 'auth/popup-closed-by-user') renderGate('signin', e);
+  }
+}
+function startUI() {
+  window.addEventListener('hashchange', () => { if (!CLOUD || cloudUser) { route(); window.scrollTo({ top: 0 }); } });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerenderForTheme);
+  new MutationObserver(rerenderForTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+function rerenderSafe() { if (!CLOUD || (cloudUser && S.access)) route(); }
+if (!CLOUD) {
+  try { loadData(parseSheet(SAMPLE_AOA), 'sample'); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(route); }
+} else {
+  startUI();
+  renderGate('loading');
+  document.getElementById('signout').addEventListener('click', () => firebase.auth().signOut());
+  firebase.auth().onAuthStateChanged(async user => {
+    cloudUser = user; S.access = false; S.data = null; S.ana = null; updateBrand();
+    const acct = document.getElementById('account');
+    acct.hidden = !user; document.getElementById('acct-email').textContent = user ? user.email || '' : '';
+    if (!user) return renderGate('signin');
+    try {
+      const snap = await dataDoc().get();
+      S.access = true;
+      if (snap.exists) { const v = snap.data(); loadData(parseSheet(JSON.parse(v.aoa)), 'cloud', v.fileName); updateBrand(); }
+      route();
+      if (document.fonts) document.fonts.ready.then(rerenderSafe);
+    } catch (e) {
+      renderGate(e.code === 'permission-denied' ? 'denied' : 'error', e);
+    }
+  });
+}
+</script>

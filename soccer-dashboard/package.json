@@ -1,0 +1,14 @@
+{
+  "name": "match-lens",
+  "private": true,
+  "description": "サッカーのチームスタッツを自動で分析・可視化するダッシュボード（Firebase Hosting + Auth + Firestore）",
+  "scripts": {
+    "build": "python3 build.py --firebase",
+    "test:rules": "firebase emulators:exec --config firebase.test.json --only firestore --project demo-match-lens \"node tests/rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "3.0.4",
+    "firebase": "10.12.2",
+    "firebase-tools": "15.33.0"
+  }
+}
