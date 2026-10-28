@@ -269,6 +269,33 @@ table.kv-wide td { white-space: normal; min-width: 160px; vertical-align: top; }
 .sel-table label { cursor: pointer; }
 .sel-table tr.off td:not(:first-child) { opacity: .45; }
 .sel-badge { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--hl); border: 1px solid var(--hl); border-radius: 99px; padding: 3px 12px; text-decoration: none; }
+/* Match list & deep insights */
+.match-list { padding: 0; }
+.match-list > summary { list-style: none; cursor: pointer; padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.match-list > summary::-webkit-details-marker { display: none; }
+.match-list > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.match-list[open] > summary::before { transform: rotate(90deg); }
+.ml-title { font-weight: 700; }
+.ml-strip { display: inline-flex; gap: 4px; margin-left: auto; }
+.ml-strip .dot.cur { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg); }
+.ml-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 20px 10px; }
+.match-list .tbl-wrap { padding: 0 20px 16px; }
+.ml-row { cursor: pointer; }
+.ml-row:hover td { background: var(--surface-2); }
+.ml-row:focus-visible { outline: 2px solid var(--own); outline-offset: -2px; }
+.ml-row.cur td { background: color-mix(in oklab, var(--hl) 10%, var(--surface)); font-weight: 700; }
+.ml-row a { color: inherit; }
+.ml-comp { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.ml-xg { display: inline-grid; gap: 2px; width: 80px; margin-right: 8px; vertical-align: middle; }
+.ml-xg > span { display: block; height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.ml-xg i { display: block; height: 100%; border-radius: 3px; }
+.deep-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.deep-list li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; }
+.deep-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.deep-head b { flex: 1; min-width: 200px; }
+.deep-list p { margin: 6px 0 0; }
+.ai-export { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.ai-text { width: 100%; height: 220px; margin-top: 10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--fg); padding: 10px; }
 .import-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
 ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 /* Display settings panel */
@@ -1033,6 +1060,37 @@ function drawDonut(id, parts, center) {
       tooltip: { callbacks: { label: c => { const t = c.dataset.data.reduce((a, b) => a + b, 0); return ` ${c.label}: ${c.raw}（${t ? (c.raw / t * 100).toFixed(1) : 0}%）`; } } } } } });
 }
 
+// 試合一覧（時系列）：日付順に全試合を並べ、行を選ぶとその試合へ移動する
+function matchListHTML(cur) {
+  const ms = S.data.matches, desc = S.listOrder === 'desc', list = desc ? ms.slice().reverse() : ms;
+  const v = (side, met, sub) => get(side, met, sub);
+  const f2 = x => (x == null ? '–' : x.toFixed(2)), f1 = x => (x == null ? '–' : x.toFixed(1));
+  const maxXg = Math.max(...ms.flatMap(m => [v(m.own, 'xG'), v(m.opp, 'xG')]).filter(x => x != null), 1);
+  return `<details class="card match-list" id="match-list" ${S.listOpen ? 'open' : ''}>
+    <summary><span class="ml-title">試合一覧（時系列）</span><span class="muted small">${ms.length}試合 · ${shortDate(ms[0].date)}〜${shortDate(ms.at(-1).date)}</span>
+      <span class="ml-strip" aria-hidden="true">${ms.map(x => `<i class="dot ${x.result}${x === cur ? ' cur' : ''}"></i>`).join('')}</span></summary>
+    <div class="ml-tools"><div class="seg" role="group" aria-label="並び順"><button type="button" data-order="asc" aria-pressed="${!desc}">古い順</button><button type="button" data-order="desc" aria-pressed="${desc}">新しい順</button></div>
+      <span class="muted small">行を選ぶとその試合を表示します。xG の棒は自チーム（上）と相手（下）。</span></div>
+    <div class="tbl-wrap"><table class="ml-table"><thead><tr><th>#</th><th class="l">日付</th><th class="l">対戦相手</th><th class="l">大会</th><th>場所</th><th>スコア</th><th>結果</th><th class="l">xG</th><th>保持率</th><th>シュート</th></tr></thead><tbody>
+    ${list.map(x => { const xo = v(x.own, 'xG'), xa = v(x.opp, 'xG');
+      return `<tr class="ml-row${x === cur ? ' cur' : ''}" data-no="${x.no}" tabindex="0" ${x === cur ? 'aria-current="true"' : ''}>
+        <td>${x.no}</td><td class="l"><a href="#match-${x.no}">${esc(x.date)}</a></td><td class="l">${esc(x.opp.team)}</td><td class="l ml-comp">${esc(x.comp)}</td>
+        <td>${x.home ? 'H' : 'A'}</td><td><b>${x.gf}-${x.ga}</b></td><td><span class="pill ${x.result}">${RES[x.result]}</span></td>
+        <td class="l"><span class="ml-xg"><span><i style="width:${(xo || 0) / maxXg * 100}%;background:var(--own)"></i></span><span><i style="width:${(xa || 0) / maxXg * 100}%;background:var(--opp)"></i></span></span><span class="small">${f2(xo)} - ${f2(xa)}</span></td>
+        <td>${f1(v(x.own, 'ボール保持率(%)'))}%</td><td>${v(x.own, 'シュート', '合計') ?? '–'} - ${v(x.opp, 'シュート', '合計') ?? '–'}</td></tr>`; }).join('')}
+    </tbody></table></div></details>`;
+}
+function bindMatchList() {
+  const el = document.getElementById('match-list');
+  if (!el) return;
+  el.addEventListener('toggle', () => { S.listOpen = el.open; });
+  el.querySelectorAll('[data-order]').forEach(b => b.addEventListener('click', () => { S.listOrder = b.dataset.order; S.listOpen = true; route(); }));
+  el.querySelectorAll('.ml-row').forEach(r => {
+    const go = () => { location.hash = '#match-' + r.dataset.no; };
+    r.addEventListener('click', e => { if (!e.target.closest('a')) go(); });
+    r.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
 function renderMatch(no) {
   const d = S.data, ms = d.matches, m = ms[no - 1] || ms[0];
   const prev = m.no > 1 ? m.no - 1 : null, next = m.no < ms.length ? m.no + 1 : null;
@@ -1045,6 +1103,7 @@ function renderMatch(no) {
     <div class="chips">${ms.map(x => `<a class="chip" href="#match-${x.no}" ${x === m ? 'aria-current="page"' : ''}><i class="dot ${x.result}"></i>${shortDate(x.date)} ${esc(x.opp.team)}</a>`).join('')}</div>
     <a class="iconbtn" href="#match-${next || ms.length}" aria-label="次の試合" aria-disabled="${!next}">›</a>
   </nav>
+  ${matchListHTML(m)}
   <section class="card scoreboard">
     <div class="sb-team">${tagSide(left)}<div class="nm">${esc(left.team)}</div><div class="fm">${esc(left.form)}</div></div>
     <div class="sb-score"><div class="s">${get(left, 'ゴール')} - ${get(right, 'ゴール')}</div><div class="x">${xg}</div>
@@ -1069,9 +1128,10 @@ function renderMatch(no) {
   </div>
   <section class="card"><div class="card-head"><h2>全指標</h2><p>差＝自チーム − 相手、平均＝自チームの全試合平均</p></div>${fullTableHTML(m)}</section>`;
 
-  app.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
-    S.pieSide = b.dataset.side; app.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b)); drawDonuts(m);
+  app.querySelectorAll('.seg button[data-side]').forEach(b => b.addEventListener('click', () => {
+    S.pieSide = b.dataset.side; app.querySelectorAll('.seg button[data-side]').forEach(x => x.setAttribute('aria-pressed', x === b)); drawDonuts(m);
   }));
+  bindMatchList();
   drawDonuts(m);
 
   const own = T('own'), opp = T('opp');
@@ -1560,6 +1620,10 @@ function renderAnalysis() {
   <section class="card"><div class="card-head"><h2>チーム力の区分</h2><p>上位グループを選ぶと、その差で補正します（現在 ${S.strong.size}チーム）</p></div>
     <div class="team-chips">${teams.map(t => `<button type="button" class="tchip" data-team="${esc(t)}" aria-pressed="${S.strong.has(t)}">${esc(t)}</button>`).join('')}</div></section>
   <section class="card"><div class="card-head"><h2>自動分析サマリー</h2><p>数値から機械的に導いた所見</p></div>${insightsHTML(analysisInsights(A))}</section>
+  <section class="card"><div class="card-head"><h2>深掘りインサイト</h2><p>試合ごとの差・モデルの安定性・状況別の比較から算出</p></div>${deepInsightsHTML(deepInsights(A))}
+    <div class="ai-export"><button type="button" class="btn ghost" id="ai-copy">AI分析用データをコピー</button>
+      <span class="muted small">Gemini などの生成AIに渡せる形（集計値・試合表・分析結果・指示文の JSON）でコピーします。</span></div>
+    <textarea id="ai-text" class="ai-text" readonly hidden aria-label="AI分析用データ"></textarea></section>
   <div class="grid">
     <section class="card"><div class="card-head"><h2>補正前後の相関</h2>
       <div class="seg" role="group" aria-label="目的変数">${TARGETS.filter(([t]) => A.ind[0] && A.ind[0].raw[t] != null).map(([t, l]) => `<button type="button" data-ana-t="${t}" aria-pressed="${S.anaTarget === t}">${l}</button>`).join('')}</div></div>
@@ -1595,6 +1659,11 @@ function renderAnalysis() {
       <li>並べ替え検定は乱数を使うため、別の計算環境とはp値が小数点以下2〜3桁目で異なることがあります（このページでは乱数の種を固定）。</li>
     </ul></details>`;
 
+  document.getElementById('ai-copy').addEventListener('click', async () => {
+    const text = JSON.stringify(aiPayload(A), null, 2), ta = document.getElementById('ai-text');
+    try { await navigator.clipboard.writeText(text); toast(`AI分析用データをコピーしました（${Math.round(text.length / 1000)}千文字）`); }
+    catch (e) { ta.value = text; ta.hidden = false; ta.focus(); ta.select(); toast('コピーできない環境のため、表示した文字をすべて選択してコピーしてください'); }
+  });
   app.querySelectorAll('.tchip').forEach(b => b.addEventListener('click', () => {
     const t = b.dataset.team; S.strong.has(t) ? S.strong.delete(t) : S.strong.add(t); route();
   }));
@@ -1634,6 +1703,114 @@ function renderAnalysis() {
     hBarChart(document.getElementById('a-strength'), { title: 'r', labels: sr.map(o => o.name), values: sr.map(o => o.rS),
       colors: sr.map(o => (Math.abs(o.rS) >= .8 ? hl : barm)), min: -1, max: 1, lines: [-A.critR, A.critR], fmtV: v => `r = ${v.toFixed(2)}` });
   }
+}
+
+
+/* ============ Deep insights: statistics beyond the summary ============ */
+const cohenD = (a, b) => { const na = a.length, nb = b.length; if (na < 2 || nb < 2) return 0; const sp = Math.sqrt(((na - 1) * sd(a) ** 2 + (nb - 1) * sd(b) ** 2) / (na + nb - 2)); return sp ? (mean(a) - mean(b)) / sp : 0; };
+const median = a => { const v = a.filter(x => x != null).sort((x, y) => x - y), n = v.length; return n ? (n % 2 ? v.at((n - 1) / 2) : (v.at(n / 2 - 1) + v.at(n / 2)) / 2) : null; };
+const vsLabel = m => `${shortDate(m.date)} ${m.opp.team}戦`;
+function deepInsights(A) {
+  const d = S.data, ms = d.matches, out = [], own = A.rows.filter(r => r.isOwn);
+  const pv = name => (A.P.find(p => p.name === name) || {}).v;
+  const ownIdx = A.rows.map((r, i) => (r.isOwn ? i : -1)).filter(i => i >= 0);
+  // 1. 好調な試合と不調な試合の違い（xG差の上位半分と下位半分を比べる）
+  if (ms.length >= 4 && own.every(r => r.xG != null && r.xGA != null)) {
+    const order = ownIdx.slice().sort((a, b) => (A.rows.at(b).xG - A.rows.at(b).xGA) - (A.rows.at(a).xG - A.rows.at(a).xGA));
+    const h = Math.floor(order.length / 2), top = order.slice(0, h), bot = order.slice(-h);
+    const diffs = A.P.map(p => ({ name: p.name, a: mean(top.map(i => p.v.at(i))), b: mean(bot.map(i => p.v.at(i))), d: cohenD(top.map(i => p.v.at(i)), bot.map(i => p.v.at(i))) }))
+      .filter(x => isFinite(x.d)).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 3);
+    const tops = top.map(i => vsLabel(A.rows.at(i).m)).join('、');
+    out.push({ cat: '好調・不調の差', strength: '弱', title: `xG差の上位${h}試合と下位${h}試合で差が大きい指標`,
+      text: diffs.map(x => `${x.name}：${fmtN(x.a)} 対 ${fmtN(x.b)}（効果量 d = ${x.d.toFixed(1)}）`).join(' / ') + `。上位は ${tops}。`,
+      caveat: `各${h}試合の比較で、偶然の差を除けません。対戦相手の水準の違いも含みます。` });
+  }
+  // 2. モデルで説明できない試合（xG の最良モデルの残差）
+  const cx = A.conds.find(c => c.t === 'xG' && !c.adj);
+  if (cx) {
+    const names = cx.top[0].names, cols = names.map(pv), fit = ols(cols, A.rows.map(r => r.xG));
+    if (fit) {
+      const pred = A.rows.map((r, i) => fit.b.at(0) + cols.reduce((s, c, j) => s + fit.b.at(j + 1) * c.at(i), 0));
+      const res = ownIdx.map(i => ({ m: A.rows.at(i).m, act: A.rows.at(i).xG, pr: pred.at(i) })).sort((a, b) => Math.abs(b.act - b.pr) - Math.abs(a.act - a.pr)).slice(0, 2);
+      out.push({ cat: '説明できない試合', strength: '参考', title: `「xG ~ ${names.join(' ＋ ')}」の予測から外れた試合`,
+        text: res.map(x => `${vsLabel(x.m)}：予測 ${x.pr.toFixed(2)} に対し実際 ${x.act.toFixed(2)}（${fmtDiff(x.act - x.pr, 'xG')}）`).join(' / ') + '。指標に表れない要因（相手の守り方、退場、試合展開など）を映像で確認する候補です。',
+        caveat: '同じデータで作ったモデルの予測なので、外れの大きさは控えめに出ます。' });
+      // 3. 係数の安定性（1試合ずつ抜いて作り直す）
+      if (ms.length >= 5) {
+        const stab = names.map((nm, j) => {
+          const bs = ms.map(m => { const keep = A.rows.map((r, i) => (r.m === m ? -1 : i)).filter(i => i >= 0); const f = ols(cols.map(c => keep.map(i => c.at(i))), keep.map(i => A.rows.at(i).xG)); return f ? f.b.at(j + 1) : null; }).filter(x => x != null);
+          const sign = Math.sign(fit.b.at(j + 1)), same = bs.filter(b => Math.sign(b) === sign).length;
+          return { nm, same, n: bs.length, lo: Math.min(...bs), hi: Math.max(...bs) };
+        });
+        const solid = stab.every(x => x.same === x.n) && cx.pPerm < .05;
+        out.push({ cat: 'モデルの安定性', strength: solid ? '中' : '弱', title: '1試合ずつ抜いても同じ結論になるか',
+          text: stab.map(x => `${x.nm} の係数は ${x.n}回中${x.same}回で同じ符号（${x.lo.toFixed(3)}〜${x.hi.toFixed(3)}）`).join(' / ') + `。並べ替え検定 p = ${cx.pPerm.toFixed(3)}。`,
+          caveat: solid ? '特定の1試合に依存した結果ではありません。ただし試合数が少ないため、因果の根拠にはなりません。' : '一部の試合を抜くと結論が変わります。結果は特定の試合に依存しています。' });
+      }
+      // 4. 境目：最も効いている指標の中央値で分けたときの xG
+      const key = cx.top[0].vars.filter(x => x.name !== 'チーム力').sort((x, y) => Math.abs(y.beta) - Math.abs(x.beta)).at(0).name, v = pv(key), med = median(v);
+      const hiR = A.rows.filter((r, i) => v.at(i) >= med), loR = A.rows.filter((r, i) => v.at(i) < med);
+      if (hiR.length && loR.length) out.push({ cat: '境目', strength: '参考', title: `${key} の多い試合と少ない試合`,
+        text: `${key} が中央値（${fmtN(med)}）以上の${hiR.length}行は平均 xG ${mean(hiR.map(r => r.xG)).toFixed(2)}、未満の${loR.length}行は ${mean(loR.map(r => r.xG)).toFixed(2)}（両チームの行）。`,
+        caveat: '目安となる数値の提示で、この値を超えれば xG が上がるという意味ではありません。' });
+    }
+  }
+  // 5. 相手の水準別
+  if (A.hasStrength) {
+    const g = ms.map(m => ({ m, strong: S.strong.has(m.opp.team) }));
+    const a = g.filter(x => x.strong).map(x => x.m), b = g.filter(x => !x.strong).map(x => x.m);
+    if (a.length && b.length) {
+      const avg = (list, fn) => mean(list.map(fn));
+      const row = (lbl, fn, dg) => `${lbl} ${avg(a, fn).toFixed(dg)} 対 ${avg(b, fn).toFixed(dg)}`;
+      out.push({ cat: '相手の水準別', strength: '参考', title: `上位グループ相手（${a.length}試合）とそれ以外（${b.length}試合）`,
+        text: [row('得点', m => m.gf, 1), row('失点', m => m.ga, 1), has('xG', '') && row('xG', m => get(m.own, 'xG'), 2), has('xG', '') && row('被xG', m => get(m.opp, 'xG'), 2), has('ボール保持率(%)', '') && row('保持率', m => get(m.own, 'ボール保持率(%)'), 1)].filter(Boolean).join(' / ') + '（1試合平均）。',
+        caveat: '上位グループの区分は「チーム力の区分」の設定に従います。' });
+    }
+  }
+  // 6. 前半と後半の変化
+  if (ms.length >= 6) {
+    const h = Math.floor(ms.length / 2), first = ms.slice(0, h), last = ms.slice(-h);
+    const ch = A.P.map(p => { const f = first.map(m => get(m.own, p.met, p.sub)), l = last.map(m => get(m.own, p.met, p.sub)), s2 = sd(ms.map(m => get(m.own, p.met, p.sub)));
+      return { name: p.name, met: p.met, sub: p.sub, f: mean(f), l: mean(l), z: s2 ? (mean(l) - mean(f)) / s2 : 0 }; }).sort((x, y) => Math.abs(y.z) - Math.abs(x.z)).slice(0, 3);
+    out.push({ cat: '前半と後半', strength: '弱', title: `最初の${h}試合と最後の${h}試合で変化が大きい指標`,
+      text: ch.map(x => `${x.name}：${fmt(x.f, x.met, x.sub, 1)} → ${fmt(x.l, x.met, x.sub, 1)}`).join(' / ') + '。',
+      caveat: '対戦相手の顔ぶれが前半と後半で違う場合、その影響を含みます。' });
+  }
+  // 7. 失点の上振れが特定の試合に集中していないか
+  if (own.every(r => r.xGA != null)) {
+    const ex = ms.map(m => ({ m, e: m.ga - get(m.opp, 'xG') })), tot = ex.reduce((s, x) => s + x.e, 0), worst = ex.slice().sort((a, b) => b.e - a.e).at(0);
+    if (tot > 0 && worst.e > 0) out.push({ cat: '失点の偏り', strength: '参考', title: '失点が被xGを上回った分の内訳',
+      text: `合計 ${fmtDiff(tot, 'xG')} のうち ${vsLabel(worst.m)} が ${fmtDiff(worst.e, 'xG')}（${Math.round(worst.e / tot * 100)}%）。${worst.e / tot >= .5 ? '1試合に集中しており、シーズン全体の守備の傾向とは分けて評価する必要があります。' : '複数の試合に分散しています。'}`,
+      caveat: 'GK のセーブやシュートブロックのデータがないため、原因は特定できません。' });
+  }
+  return out;
+}
+const fmtN = v => (v == null ? '–' : Number.isInteger(v) ? String(v) : v.toFixed(1));
+function deepInsightsHTML(list) {
+  if (!list.length) return '<p class="muted" style="margin:0">深掘りに必要な指標（xG・被xG など）が不足しています。</p>';
+  const cls = { '中': 'good', '弱': '', '参考': '' };
+  return `<ul class="deep-list">${list.map(x => `<li><div class="deep-head"><span class="tag">${esc(x.cat)}</span><b>${esc(x.title)}</b><span class="tag ${cls[x.strength] || ''}" title="根拠の強さ">根拠：${esc(x.strength)}</span></div>
+    <p>${esc(x.text)}</p><p class="muted small">注意：${esc(x.caveat)}</p></li>`).join('')}</ul>
+    <p class="muted small" style="margin:10px 0 0">根拠の強さ：中＝並べ替え検定で偶然と区別でき、1試合を抜いても結論が変わらない／弱＝少数の試合の比較／参考＝確認の手がかり。いずれも因果関係の証明ではありません。</p>`;
+}
+// 生成AIに渡すためのデータ一式（数値はすべてこのアプリが計算したもの）
+function aiPayload(A) {
+  const d = S.data, keys = [['ゴール', ''], ['xG', ''], ['シュート', '合計'], ['シュート', '枠内'], ['ボール保持率(%)', ''], ['パス', '合計'], ['パス', '成功率(%)'], ['1/3へのパス', '成功'], ['スマートパス', '合計'], ['クロス', '合計'],
+    ['ポジショナルアタック', '合計'], ['カウンターアタック', '合計'], ['ボールロス（ゾーン別）', '合計'], ['ボールロス（ゾーン別）', '低'], ['リカバリー（ゾーン別）', '合計'], ['リカバリー（ゾーン別）', '高'], ['インターセプト', ''], ['競り合い（全体）', '勝率(%)'], ['空中競り合い', '勝率(%)'], ['CK', '合計'], ['ファウル', '']].filter(([m, s]) => has(m, s));
+  const side = x => Object.fromEntries(keys.map(([m, s]) => [label(m, s), get(x, m, s)]));
+  return {
+    instructions: 'あなたはサッカーのデータアナリストです。以下のデータだけを根拠に、得点・失点に関係する要因について仮説と示唆を日本語で作成してください。数値は data と analysis にある値だけを使い、新しい数値を作らないでください。試合数が少ないため、相関を因果と断定しないでください。各示唆には根拠となる指標名と試合、確信度（高・中・低）、映像やデータで確かめる方法を添えてください。',
+    team: d.ownTeam, period: { from: d.matches[0].date, to: d.matches.at(-1).date }, matches: d.matches.length,
+    definitions: { xG: '期待得点', '被xG': '相手のxG', 'チーム力の上位グループ': [...S.strong], note: 'ゾーン「低・中・高」の定義は元データに記載なし' },
+    data: d.matches.map(m => ({ date: m.date, competition: m.comp, opponent: m.opp.team, venue: m.home ? 'home' : 'away', score: `${m.gf}-${m.ga}`, result: m.result, own: side(m.own), opponent_stats: side(m.opp) })),
+    analysis: {
+      goals_vs_xG_R2: A.gx ? +A.gx.r2.toFixed(3) : null,
+      best_models: A.conds.map(c => ({ target: c.tl, adjusted_for_team_strength: c.adj, predictors: c.top[0].names, loocv_error_reduction: +c.top[0].gain.toFixed(3), permutation_p: +c.pPerm.toFixed(3) })),
+      partial_correlation_with_xG: A.hasStrength ? Object.fromEntries(A.ind.map(o => [o.name, o.partial.xG == null ? null : +o.partial.xG.toFixed(3)])) : null,
+      correlation_with_team_strength: A.hasStrength ? Object.fromEntries(A.ind.map(o => [o.name, +o.rS.toFixed(3)])) : null,
+      deep_insights: deepInsights(A).map(x => ({ category: x.cat, title: x.title, finding: x.text, evidence: x.strength, caveat: x.caveat })),
+    },
+  };
 }
 
 /* ============ Saved analyses (history) and multi-team comparison ============ */
