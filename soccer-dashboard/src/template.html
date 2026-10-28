@@ -15,6 +15,7 @@
   --pos: #2a78d6; --neg: #e34948;
   --nav: #0f2219; --nav-fg: #e8efe9; --nav-muted: #9db3a5;
   --hl: #6250d6; --bar-strong: #aab2ac; --bar-muted: #d3d9d4;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4; --c6: #008300;
   --font-display: "Barlow Condensed", "Arial Narrow", "Noto Sans JP", sans-serif;
   --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
   --radius: 10px;
@@ -30,6 +31,7 @@
     --pos: #3987e5; --neg: #e66767;
     --nav: #0b1510; --nav-fg: #e8efe9; --nav-muted: #8aa293;
     --hl: #9085e9; --bar-strong: #5f6862; --bar-muted: #3a413c;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300;
     color-scheme: dark;
   }
 }
@@ -43,6 +45,7 @@
   --pos: #3987e5; --neg: #e66767;
   --nav: #0b1510; --nav-fg: #e8efe9; --nav-muted: #8aa293;
   --hl: #9085e9; --bar-strong: #5f6862; --bar-muted: #3a413c;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -174,6 +177,7 @@ th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: ri
 th:first-child, td:first-child, th.l, td.l { text-align: left; }
 thead th { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; position: sticky; top: 0; background: var(--surface); }
 table.kv td { white-space: normal; overflow-wrap: anywhere; }
+table.kv td:first-child { white-space: nowrap; width: 5.5em; vertical-align: top; }
 td.grp { color: var(--muted); font-size: 12px; }
 td.d-pos { color: var(--pos); } td.d-neg { color: var(--neg); }
 details.cat { border-top: 1px solid var(--line); }
@@ -228,6 +232,34 @@ select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); b
 .dumbbell .svg-lbl { font-size: 12px; fill: var(--fg-2); }
 .dumbbell .svg-val { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .dumbbell .on { fill: var(--fg); font-weight: 700; }
+/* History & comparison */
+.banner-wrap { max-width: 1200px; margin: 0 auto; }
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 16px; margin-bottom: 16px; border-radius: 8px; border: 1px solid var(--hl); background: color-mix(in oklab, var(--hl) 10%, var(--surface)); font-size: 13px; }
+.save-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 12px; align-items: end; }
+@media (max-width: 760px) { .save-form { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; color: var(--fg-2); font-weight: 500; }
+.field input { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn.danger { color: var(--loss); }
+.hist-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.hist-actions a.btn { text-decoration: none; }
+.hist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hist-item { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; }
+.hist-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hist-name { font-weight: 700; }
+.hist-meta { font-size: 12px; color: var(--fg-2); }
+.hist-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.hist-btns .btn { padding: 6px 12px; font-size: 12px; }
+.tsel[aria-pressed="true"] { border-color: var(--hl); color: var(--fg); background: color-mix(in oklab, var(--hl) 12%, var(--surface)); }
+.tchip.cmp { display: inline-flex; align-items: center; gap: 6px; }
+.tchip.cmp[aria-pressed="true"]::before { content: none; }
+.tchip:disabled { opacity: .45; cursor: not-allowed; }
+.lg { display: inline-flex; align-items: center; margin-left: 12px; }
+td.best { font-weight: 700; color: var(--fg); }
+table.kv-wide td { white-space: normal; min-width: 160px; vertical-align: top; }
+.import-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
+ol.files { margin: 0; padding-left: 18px; text-align: left; font-size: 12px; }
 .account { order: 3; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--nav-muted); margin-left: 12px; }
 .account button { border: 1px solid var(--nav-muted); background: transparent; color: var(--nav-fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
 .gate { max-width: 520px; margin: 40px auto; }
@@ -244,11 +276,13 @@ select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); b
       <a href="#match-1" data-route="match">試合別</a>
       <a href="#trends" data-route="trends">推移比較</a>
       <a href="#analysis" data-route="analysis">要因分析</a>
+      <a href="#history" data-route="history">過去分析</a>
+      <a href="#compare" data-route="compare">チーム比較</a>
       <a href="#import" data-route="import">データ取込</a>
     </nav>
   </div>
 </header>
-<main><div class="wrap" id="app"></div></main>
+<main><div class="banner-wrap"><div id="banner" class="banner" role="status" hidden></div></div><div class="wrap" id="app"></div></main>
 <div class="toast" id="toast" hidden></div>
 
 __HEAD_EXTRA__
@@ -348,9 +382,262 @@ function parseSheet(aoa) {
   if (!matches.length) throw new Error('自チームと対戦相手の行を1試合単位で対にできませんでした。「区分」列に「自チーム」「対戦相手」を入れてください。');
 
   const catList = [...new Set(metrics.map(c => c.cat))];
-  return { title: clean((aoa[0] || [])[0]), ownTeam: own0(matches), metrics, catList, matches, notes };
+  const out = { title: clean((aoa[0] || [])[0]), ownTeam: own0(matches), metrics, catList, matches, notes };
+  augmentKpis(out);
+  return out;
 }
 const own0 = ms => ms[0].own.team;
+
+
+/* ============ Cross-file KPIs: computed from the merged metrics ============ */
+// 元データの指標を組み合わせて計算する指標。元の指標と二重に数えないよう、独立した大分類「8」に置く
+const KPI_CAT = '8 算出指標（KPI）';
+const kRound = (v, d) => (v == null || !isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
+const kPct = (a, b) => (a == null || b == null || !b ? null : kRound(a / b * 100, 2));
+const kRatio = (a, b) => (a == null || b == null || !b ? null : kRound(a / b, 3));
+const kDiff = (a, b) => (a == null || b == null ? null : kRound(a - b, 2));
+const kSum = (...v) => (v.some(x => x == null) ? null : v.reduce((s, x) => s + x, 0));
+const KPI_DEFS = [
+  ['8-1 攻撃の効率', '決定率(%)', 'ゴール ÷ シュート', s => kPct(s('ゴール'), s('シュート', '合計'))],
+  ['8-1 攻撃の効率', '枠内シュート決定率(%)', 'ゴール ÷ 枠内シュート', s => kPct(s('ゴール'), s('シュート', '枠内'))],
+  ['8-1 攻撃の効率', 'シュート1本あたりxG', 'xG ÷ シュート', s => kRatio(s('xG'), s('シュート', '合計'))],
+  ['8-1 攻撃の効率', '得点−xG', 'ゴール − xG', s => kDiff(s('ゴール'), s('xG'))],
+  ['8-1 攻撃の効率', '攻撃→シュート到達率(%)', '（ポジショナル＋カウンターのシュートあり）÷（両攻撃の合計）',
+    s => kPct(kSum(s('ポジショナルアタック', 'シュートあり'), s('カウンターアタック', 'シュートあり')), kSum(s('ポジショナルアタック', '合計'), s('カウンターアタック', '合計')))],
+  ['8-1 攻撃の効率', 'セットプレー起点シュート比率(%)', '（CK＋FKのシュートあり）÷ シュート', s => kPct(kSum(s('CK', 'シュートあり'), s('FK', 'シュートあり')), s('シュート', '合計'))],
+  ['8-1 攻撃の効率', '前線へのパス比率(%)', '前線へのパス ÷ パス総数', s => kPct(s('前線へのパス', '合計'), s('パス', '合計'))],
+  ['8-2 守備・奪取', 'リカバリー（高）比率(%)', 'リカバリー（高）÷ リカバリー合計', s => kPct(s('リカバリー（ゾーン別）', '高'), s('リカバリー（ゾーン別）', '合計'))],
+  ['8-2 守備・奪取', 'ボールロス（低）比率(%)', 'ボールロス（低）÷ ボールロス合計', s => kPct(s('ボールロス（ゾーン別）', '低'), s('ボールロス（ゾーン別）', '合計'))],
+  ['8-2 守備・奪取', '被シュート1本あたり被xG', '相手のxG ÷ 相手のシュート', (s, o) => kRatio(o('xG'), o('シュート', '合計') ?? s('被シュート', '合計'))],
+  ['8-3 試合全体', 'xG差', 'xG − 相手のxG', (s, o) => kDiff(s('xG'), o('xG'))],
+  ['8-3 試合全体', '空中戦の割合(%)', '空中競り合い ÷ 競り合い全体', s => kPct(s('空中競り合い', '件数'), s('競り合い（全体）', '件数'))],
+];
+function augmentKpis(d) {
+  if (d.metrics.some(c => c.kpi)) return;
+  const acc = side => (met, sub = '') => (side.vals[K(met, sub)] ?? null);
+  for (const [grp, met, formula, fn] of KPI_DEFS) {
+    const key = K(met, '');
+    if (d.metrics.some(c => c.key === key)) continue;
+    let any = false;
+    for (const m of d.matches) for (const [a, b] of [[m.own, m.opp], [m.opp, m.own]]) { const v = fn(acc(a), acc(b)); a.vals[key] = v; if (v != null) any = true; }
+    if (!any) { d.matches.forEach(m => { delete m.own.vals[key]; delete m.opp.vals[key]; }); continue; }
+    d.metrics.push({ idx: -1, info: false, cat: KPI_CAT, grp, met, sub: '', key, derived: true, kpi: true, formula });
+  }
+  if (d.metrics.some(c => c.kpi) && !d.catList.includes(KPI_CAT)) d.catList.push(KPI_CAT);
+}
+
+/* ============ Auto-MECE: merge raw exports of differing layouts into one sheet ============ */
+// 大分類・小分類・指標・内訳の基準（各指標はいずれか1つの分類にだけ属する）
+const MECE_SCHEMA = [
+  ['1 結果', '1-1 得点側', 'ゴール', []], ['1 結果', '1-1 得点側', 'xG', []], ['1 結果', '1-1 得点側', 'シュート', ['合計', '枠内', '枠内率(%)']],
+  ['1 結果', '1-2 失点側', '失点', []], ['1 結果', '1-2 失点側', '被シュート', ['合計', '枠内', '枠内率(%)']],
+  ['2 ボール保持（攻撃）', '2-1 保持', 'ボール保持率(%)', []],
+  ['2 ボール保持（攻撃）', '2-2 パス総数', 'パス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', '前線へのパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', '横パス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', 'バックパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-3 パス方向別', '方向分類外（算出値）', ['合計', '成功']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', 'ロングパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', '1/3へのパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', '縦パス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-4 パス属性別', 'スマートパス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-5 チャンスメイク', 'クロス', ['合計', '成功', '成功率(%)']],
+  ['2 ボール保持（攻撃）', '2-6 攻撃の型', 'ポジショナルアタック', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['2 ボール保持（攻撃）', '2-6 攻撃の型', 'カウンターアタック', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['2 ボール保持（攻撃）', '2-7 ボールロス', 'ボールロス（ゾーン別）', ['合計', '低', '中', '高']],
+  ['2 ボール保持（攻撃）', '2-8 その他', 'オフサイド', []],
+  ['3 ボール非保持（守備）', '3-1 ボール奪取', 'リカバリー（ゾーン別）', ['合計', '低', '中', '高']],
+  ['3 ボール非保持（守備）', '3-1 ボール奪取', 'インターセプト', []],
+  ['3 ボール非保持（守備）', '3-1 ボール奪取', 'スライディングタックル', ['合計', '成功', '成功率(%)']],
+  ['3 ボール非保持（守備）', '3-2 クリア', 'クリア', []],
+  ['4 セットプレー', '4-1 攻撃セットプレー', 'CK', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['4 セットプレー', '4-1 攻撃セットプレー', 'FK', ['合計', 'シュートあり', 'シュート到達率(%)']],
+  ['4 セットプレー', '4-1 攻撃セットプレー', 'PK', ['合計', '成功', '成功率(%)']],
+  ['4 セットプレー', '4-2 リスタート', 'スローイン', ['合計', '成功', '成功率(%)']],
+  ['4 セットプレー', '4-2 リスタート', 'ゴールキック', []],
+  ['5 競り合い（局面横断）', '5-1 総数', '競り合い（全体）', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', '攻め競り合い', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', '守り競り合い', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', '空中競り合い', ['件数', '勝ち', '勝率(%)']],
+  ['5 競り合い（局面横断）', '5-2 種類別', 'その他（算出値）', ['件数', '勝ち']],
+  ['6 規律', '6-1 ファウル・警告', 'ファウル', []], ['6 規律', '6-1 ファウル・警告', 'イエローカード', []], ['6 規律', '6-1 ファウル・警告', 'レッドカード', []],
+];
+const MECE_CATS = ['1 結果', '2 ボール保持（攻撃）', '3 ボール非保持（守備）', '4 セットプレー', '5 競り合い（局面横断）', '6 規律', '7 その他（未分類）'];
+// 名称の揺れ（元データの見出し → 基準の指標名）
+const RAW_RENAME = { '枠内シュート': 'シュート', '与えたゴール': '失点', '被ゴール': '失点', 'ファール': 'ファウル', 'ボールロス': 'ボールロス（ゾーン別）',
+  'リカバリー': 'リカバリー（ゾーン別）', '競り合い': '競り合い（全体）', 'ボール保持': 'ボール保持率(%)', 'コーナーキック': 'CK', 'フリーキック': 'FK', 'ペナルティキック': 'PK' };
+const INFO_SYN = { '日付': '日付', '試合': '試合', '大会': '大会', '期間': '試合時間(分)', '試合時間(分)': '試合時間(分)', '試合時間': '試合時間(分)',
+  'グループのデータベース': 'チーム', 'チーム': 'チーム', 'スキーム': 'フォーメーション', 'フォーメーション': 'フォーメーション', '区分': '区分' };
+const INFO_ORDER = ['日付', '試合', '大会', '試合時間(分)', 'チーム', '区分', 'フォーメーション'];
+// 未知の指標の振り分け（上から順に判定）
+const HEURISTIC = [[4, /CK|FK|PK|スローイン|ゴールキック|コーナー|フリーキック|セットプレー/], [6, /ファウル|ファール|カード|警告|退場/],
+  [5, /競り合い|デュエル|空中戦/], [1, /ゴール|xG|シュート|得点|失点/], [3, /リカバリー|インターセプト|タックル|クリア|奪取|ブロック|プレス|守/],
+  [2, /パス|保持|ポゼッション|クロス|ドリブル|アタック|ロス|オフサイド|攻|タッチ/]];
+const DERIVED = [
+  ['方向分類外（算出値）', '合計', 'パス', '合計', ['前線へのパス', '横パス', 'バックパス']],
+  ['方向分類外（算出値）', '成功', 'パス', '成功', ['前線へのパス', '横パス', 'バックパス']],
+  ['その他（算出値）', '件数', '競り合い（全体）', '件数', ['攻め競り合い', '守り競り合い', '空中競り合い']],
+  ['その他（算出値）', '勝ち', '競り合い（全体）', '勝ち', ['攻め競り合い', '守り競り合い', '空中競り合い']],
+];
+
+const rateLabel = s => ({ '成功': '成功率(%)', '勝ち': '勝率(%)', 'シュートあり': 'シュート到達率(%)', '枠内': '枠内率(%)' }[s] || `${s}率(%)`);
+const numOrNull = v => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v));
+
+// 1 枚目の見出し行が「日付」で始まる書き出し形式（1 試合 2 行、見出しは「指標 / 内訳」）
+function parseRawSheet(aoa, file) {
+  const hr = aoa.findIndex(r => r && clean(r[0]) === '日付');
+  if (hr < 0) return null;
+  const H = aoa[hr], width = Math.max(...aoa.slice(hr, hr + 40).map(r => (r ? r.length : 0)));
+  const starts = [];
+  for (let c = 0; c < width; c++) if (clean(H[c])) starts.push(c);
+  const info = {}, cols = [], renames = new Set();
+  starts.forEach((c, i) => {
+    const span = (i + 1 < starts.length ? starts[i + 1] : width) - c;
+    const head = clean(H[c]);
+    if (INFO_SYN[head]) { info[INFO_SYN[head]] = c; return; }
+    let parts = head.split(/\s+\/\s+/), base = parts[0], pct = false;
+    const m = base.match(/^(.*?)[,、]\s*%$/);
+    if (m) { base = m[1]; pct = true; }
+    let met = RAW_RENAME[base] || (pct ? `${base}率(%)` : base);
+    if (met !== base) renames.add(`${m ? head : base} → ${met}`);
+    let subs = parts.slice(1).map(s => (s === '正確' ? '成功' : s));
+    let labels;
+    if (base === '枠内シュート' && subs.length === 0 && span === 3) labels = ['合計', '枠内', '枠内率(%)'];
+    else if (subs.length === 0 && span === 1) labels = [''];
+    else {
+      const first = /競り合い/.test(met) ? '件数' : '合計';
+      if (span === subs.length + 1) labels = [first, ...subs];
+      else if (span === subs.length + 2) labels = [first, ...subs, rateLabel(subs.at(-1) || '')];
+      else labels = Array.from({ length: span }, (_, k) => (k === 0 ? first : subs.at(k - 1) || `列${k + 1}`));
+    }
+    labels.forEach((sub, k) => cols.push({ idx: c + k, met, sub }));
+  });
+  if (!('チーム' in info) || !cols.length) return null;
+  const label = clean((aoa[hr + 1] || [])[0]);
+  const rows = [];
+  let last = {};
+  for (let r = hr + 1; r < aoa.length; r++) {
+    const row = aoa[r] || [];
+    const first = clean(row[0]);
+    if (/^平均|^注記|^【/.test(first)) break;
+    const team = clean(row[info['チーム']]);
+    if (!team) { if (row.every(v => !clean(v))) { if (rows.length) break; } continue; }
+    const g = n => (n in info ? row[info[n]] : null);
+    for (const n of ['日付', '試合', '大会', '試合時間(分)']) { const v = g(n); if (clean(v)) last[n] = v; }
+    rows.push({ date: toISODate(last['日付']), match: clean(last['試合']), comp: clean(last['大会']), dur: last['試合時間(分)'] ?? null,
+      team, side: clean(g('区分')), form: clean(g('フォーメーション')), vals: Object.fromEntries(cols.map(c => [K(c.met, c.sub), numOrNull(row[c.idx])])) });
+  }
+  if (!rows.length) return null;
+  return { kind: 'raw', file, cols: cols.map(({ met, sub }) => ({ met, sub })), rows, ownLabel: label !== '対戦相手' ? label : '', renames: [...renames] };
+}
+
+// 整理済み（4 段見出し）シートも同じ形に変換する
+function meceSheetAsSource(aoa, file) {
+  const d = parseSheet(aoa);
+  const rows = d.matches.flatMap(m => [m.own, m.opp].map(s => ({ date: s.date, match: s.name, comp: s.comp, dur: s.dur, team: s.team,
+    side: s === m.own ? '自チーム' : '対戦相手', form: s.form, vals: s.vals })));
+  return { kind: 'mece', file, aoa, data: d, cols: d.metrics.filter(c => !c.kpi).map(c => ({ met: c.met, sub: c.sub, cat: c.cat, grp: c.grp })), rows, ownLabel: d.ownTeam, renames: [] };
+}
+
+function sourceFromSheet(aoa, file) {
+  const hr = aoa.findIndex(r => r && clean(r[0]) === '日付');
+  if (hr < 0) return null;
+  if (hr >= 1 && (aoa[hr - 1] || []).some(v => clean(v))) { try { return meceSheetAsSource(aoa, file); } catch (e) { /* fall through */ } }
+  return parseRawSheet(aoa, file);
+}
+
+function classify(met, srcCat, srcGrp) {
+  const i = MECE_SCHEMA.findIndex(s => s[2] === met);
+  if (i >= 0) return { cat: MECE_SCHEMA[i][0], grp: MECE_SCHEMA[i][1], order: i, how: 'schema' };
+  if (srcCat && MECE_CATS.includes(srcCat)) return { cat: srcCat, grp: srcGrp || `${srcCat.split(' ')[0]}-9 追加指標`, order: 1e3, how: 'source' };
+  const h = HEURISTIC.find(([, re]) => re.test(met));
+  if (h) { const cat = MECE_CATS.at(h[0] - 1); return { cat, grp: `${h[0]}-9 追加指標`, order: 1e3, how: 'keyword' }; }
+  return { cat: MECE_CATS.at(-1), grp: '7-1 未分類', order: 1e4, how: 'none' };
+}
+
+// 複数の元シートを、行（日付・試合・チーム）と列（指標・内訳）で突き合わせて 1 枚の整理済みシートにする
+function buildMece(sources, fileNames) {
+  const rowMap = new Map(), colMap = new Map(), conflicts = [], files = fileNames || [...new Set(sources.map(s => s.file))];
+  for (const src of sources) {
+    for (const c of src.cols) {
+      const k = K(c.met, c.sub);
+      if (!colMap.has(k)) colMap.set(k, { met: c.met, sub: c.sub, cat: c.cat, grp: c.grp, files: new Set(), seq: colMap.size });
+      colMap.get(k).files.add(src.file);
+    }
+    for (const r of src.rows) {
+      const rk = `${r.date}|${r.match}|${r.team}`;
+      if (!rowMap.has(rk)) rowMap.set(rk, { ...r, vals: {} });
+      const t = rowMap.get(rk);
+      for (const f of ['comp', 'dur', 'side', 'form']) if (t[f] == null || t[f] === '') t[f] = r[f];
+      for (const c of src.cols) {
+        const k = K(c.met, c.sub), v = r.vals[k];
+        if (v == null) continue;
+        if (t.vals[k] == null) t.vals[k] = v;
+        else if (Math.abs(t.vals[k] - v) > 1e-6) conflicts.push(`${label(c.met, c.sub)}（${r.date} ${r.team}：採用 ${t.vals[k]}、不採用 ${v}［${src.file}］）`);
+      }
+    }
+  }
+  const rows = [...rowMap.values()];
+  // 算出値（列がなければ追加し、値が空の行は内訳から計算する）
+  const derivedAdded = [];
+  for (const [met, sub, tMet, tSub, parts] of DERIVED) {
+    const k = K(met, sub), need = [K(tMet, tSub), ...parts.map(p => K(p, tSub))];
+    if (!need.every(n => colMap.has(n))) continue;
+    if (!colMap.has(k)) { colMap.set(k, { met, sub, files: new Set(['算出']), seq: colMap.size }); derivedAdded.push(`${met} / ${sub}`); }
+    rows.forEach(r => { if (r.vals[k] == null && need.every(n => r.vals[n] != null)) r.vals[k] = parts.reduce((a, p) => a - r.vals[K(p, tSub)], r.vals[K(tMet, tSub)]); });
+  }
+  // 自チームの判定：元シートのラベル → 区分列 → 全試合に登場するチーム
+  const cnt = {};
+  rows.forEach(r => (cnt[r.team] = (cnt[r.team] || 0) + 1));
+  const own = sources.map(s => s.ownLabel).find(l => l && cnt[l]) || (rows.find(r => r.side === '自チーム') || {}).team || Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  rows.forEach(r => (r.side = r.team === own ? '自チーム' : '対戦相手'));
+  rows.sort((a, b) => b.date.localeCompare(a.date) || a.match.localeCompare(b.match) || (a.side === '自チーム' ? -1 : 1));
+  // 分類と列順（大分類 → 小分類 → 基準の並び → 初出順、同じ指標の内訳は隣り合わせ）
+  const metSeq = {};
+  for (const c of colMap.values()) metSeq[c.met] = Math.min(metSeq[c.met] ?? Infinity, c.seq);
+  const grouped = [...colMap.values()].map(c => {
+    const cl = classify(c.met, c.cat, c.grp), sch = MECE_SCHEMA.find(x => x[2] === c.met);
+    return { ...c, ...cl, catIdx: MECE_CATS.indexOf(cl.cat), subOrder: sch && sch[3].includes(c.sub) ? sch[3].indexOf(c.sub) : 50 };
+  }).sort((a, b) => a.catIdx - b.catIdx || a.grp.localeCompare(b.grp, 'ja') || a.order - b.order || metSeq[a.met] - metSeq[b.met] || a.subOrder - b.subOrder || a.seq - b.seq);
+  // 4 段見出しの組み立て
+  const W = INFO_ORDER.length + grouped.length, blank = () => Array(W).fill(null);
+  const rCat = blank(), rGrp = blank(), rMet = blank(), rSub = blank();
+  rCat[0] = '0 試合情報';
+  INFO_ORDER.forEach((n, i) => (rGrp[i] = n));
+  grouped.forEach((c, j) => {
+    const x = INFO_ORDER.length + j, prev = grouped.at(j - 1);
+    if (j === 0 || prev.cat !== c.cat) rCat[x] = c.cat;
+    if (j === 0 || prev.cat !== c.cat || prev.grp !== c.grp) rGrp[x] = c.grp;
+    if (j === 0 || prev.cat !== c.cat || prev.grp !== c.grp || prev.met !== c.met) rMet[x] = c.met;
+    rSub[x] = c.sub || null;
+  });
+  const body = rows.map(r => [r.date, r.match, r.comp, r.dur, r.team, r.side, r.form, ...grouped.map(c => r.vals[K(c.met, c.sub)] ?? null)]);
+  // 整合チェック（失点＝相手のゴール など）
+  const mirror = [];
+  for (const [a, as, b, bs] of [['失点', '', 'ゴール', ''], ['被シュート', '合計', 'シュート', '合計'], ['被シュート', '枠内', 'シュート', '枠内']]) {
+    if (!colMap.has(K(a, as)) || !colMap.has(K(b, bs))) continue;
+    for (const r of rows) {
+      const o = rows.find(x => x.date === r.date && x.match === r.match && x !== r);
+      if (o && r.vals[K(a, as)] != null && o.vals[K(b, bs)] != null && r.vals[K(a, as)] !== o.vals[K(b, bs)]) mirror.push(`${r.date} ${r.team}：${label(a, as)} ${r.vals[K(a, as)]} ≠ 相手の${label(b, bs)} ${o.vals[K(b, bs)]}`);
+    }
+  }
+  const dups = [...colMap.values()].filter(c => c.files.size > 1).map(c => label(c.met, c.sub));
+  const byHow = how => grouped.filter(c => c.how === how).map(c => label(c.met, c.sub));
+  const metCount = new Set(grouped.map(c => c.met)).size;
+  const notes = [
+    `【自動整理】${files.length}ファイル（${files.join('、')}）を、日付・試合・チームで突き合わせて1シートに統合。${rows.length / 2}試合、指標 ${metCount}個（${grouped.length}列）を${new Set(grouped.map(c => c.cat)).size}つの大分類に整理。`,
+    `【MECE構造】大分類は「${MECE_CATS.join(' / ')}」。各列はいずれか1つの分類にのみ属する。ファイルをまたいで計算するKPIは、元の指標と二重に数えないよう「${KPI_CAT}」として別に表示する。`,
+    dups.length && `【重複の統合】複数ファイルにある同じ指標を1列に統合：${dups.join('、')}。${conflicts.length ? '' : '全行で値が一致。'}`,
+    conflicts.length && `【値の不一致】${conflicts.length}件。優先するファイル（追加読み込みでは新しいファイル、同時に読み込んだ場合は先頭のファイル）の値を採用：${conflicts.slice(0, 8).join('、')}${conflicts.length > 8 ? ' ほか' : ''}。`,
+    [...new Set(sources.flatMap(s => s.renames))].length && `【名称の補正】${[...new Set(sources.flatMap(s => s.renames))].join('、')}。`,
+    derivedAdded.length && `【算出値】内訳の網羅性を確保するため追加：${derivedAdded.join('、')}（総数 − 内訳の和）。`,
+    byHow('keyword').length && `【キーワードで分類】基準にない指標を名前から振り分け：${byHow('keyword').join('、')}。`,
+    byHow('none').length && `【未分類】分類できなかった指標：${byHow('none').join('、')}。`,
+    mirror.length && `【元データの不整合】${mirror.slice(0, 6).join('、')}${mirror.length > 6 ? ' ほか' : ''}。補正せず元データのまま掲載。`,
+  ].filter(Boolean);
+  const aoa = [[`${own} チームスタッツ（${rows.length / 2}試合）— 自動MECE整理`], [], rCat, rGrp, rMet, rSub, ...body, [], ['注記'], ...notes.map(n => [n])];
+  return { aoa, summary: { files: files.length, matches: rows.length / 2, metrics: metCount, columns: grouped.length, dups: dups.length, conflicts: conflicts.length, unclassified: byHow('none').length } };
+}
 
 /* ============ Stats helpers ============ */
 const mean = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
@@ -372,7 +659,7 @@ const label = (met, sub) => {
 const fmt = (v, met, sub, digits) => {
   if (v == null || isNaN(v)) return '–';
   if (isPct(met, sub)) return v.toFixed(1) + '%';
-  if (met === 'xG') return v.toFixed(2);
+  if (/xG/.test(met)) return v.toFixed(2);
   if (digits != null) return v.toFixed(digits);
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 };
@@ -381,7 +668,7 @@ const fmtDiff = (d, met, sub) => {
   const s = d > 0 ? '+' : d < 0 ? '−' : '±';
   const a = Math.abs(d);
   if (isPct(met, sub)) return s + a.toFixed(1) + 'pt';
-  if (met === 'xG') return s + a.toFixed(2);
+  if (/xG/.test(met)) return s + a.toFixed(2);
   return s + (Number.isInteger(a) ? a : a.toFixed(1));
 };
 const shortDate = d => { const p = d.split('-'); return p.length === 3 ? `${+p[1]}/${+p[2]}` : d; };
@@ -404,9 +691,9 @@ const keyMetrics = () => KEY_METRICS.filter(([m, s]) => has(m, s));
 
 /* ============ State ============ */
 const S = { data: null, pieSide: 'own', trendKey: K('xG'), showOpp: true, showAvg: true, source: 'sample', fileName: '', strong: new Set(), ana: null };
-function loadData(d, source, fileName) {
-  S.data = d; S.source = source; S.fileName = fileName || ''; S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
-  S.strong = new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]).filter(t => STRONG_DEFAULT.includes(t))); S.ana = null;
+function loadData(d, source, fileName, aoa, files) {
+  S.data = d; S.aoa = aoa || null; S.source = source; S.fileName = fileName || ''; S.files = files || (fileName ? [fileName] : []); S.trendKey = d.metrics.some(c => c.key === K('xG')) ? K('xG') : d.metrics[0].key;
+  S.anaCond = 0; S.anaTarget = null; S.strong = new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]).filter(t => STRONG_DEFAULT.includes(t))); S.ana = null;
 }
 
 /* ============ Theme / charts ============ */
@@ -597,6 +884,8 @@ function renderOverview() {
     ${kpi('平均 xG', 'xG', '', 2)}${kpi('平均 シュート', 'シュート', '合計', 1)}${kpi('平均 ボール保持率', 'ボール保持率(%)', '')}
     ${kpi('平均 パス成功率', 'パス', '成功率(%)')}${kpi('平均 競り合い勝率', '競り合い（全体）', '勝率(%)')}${kpi('平均 リカバリー', 'リカバリー（ゾーン別）', '合計', 1)}
   </section>
+  ${d.metrics.some(c => c.kpi) ? `<section><div class="card-head" style="margin-bottom:10px"><h2>算出KPI（試合平均）</h2><p>元データの指標を組み合わせて計算</p></div>
+    <div class="kpis">${d.metrics.filter(c => c.kpi).map(c => kpi(c.met.replace('(%)', ''), c.met, '', /xG/.test(c.met) ? 2 : 1).replace('<span class="lbl">', `<span class="lbl" title="${esc(c.formula)}">`)).join('')}</div></section>` : ''}
   <section class="card"><div class="card-head"><h2>自動分析サマリー</h2><p>数値データから算出した客観的な所見</p></div>${insightsHTML(seasonInsights())}</section>
   <section class="card"><div class="card-head"><h2>試合結果（時系列）</h2><p>カードを選ぶと試合別ページへ移動</p></div>
     <div class="results">${ms.map(m => `<a class="res" href="#match-${m.no}">
@@ -790,14 +1079,18 @@ function renderImport(msg) {
   app.innerHTML = `
   <section class="card"><div class="card-head"><h2>データ取込</h2><p>Excel を読み込むと全ページが自動で再計算されます</p></div>
     ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
+    ${d ? `<div class="import-mode"><span class="muted small">読み込み方法</span><div class="seg" role="group" aria-label="読み込み方法">
+      <button type="button" data-mode="replace" aria-pressed="${S.importMode !== 'append'}">置き換える</button>
+      <button type="button" data-mode="append" aria-pressed="${S.importMode === 'append'}">今のデータに追加して統合</button></div>
+      <span class="muted small">${S.importMode === 'append' ? `いまの${d.matches.length}試合に、選んだファイルの試合・指標をつなげます。同じ値が食い違う場合は新しいファイルを優先します。` : '選んだファイルだけで作り直します。'}</span></div>` : ''}
     <div class="drop" id="drop">
-      <strong>チームスタッツの .xlsx ファイルをここにドロップ</strong>
-      <span class="muted">またはファイルを選択（.xlsx / .xls / .csv）</span>
+      <strong>チームスタッツの Excel をここにドロップ（複数可）</strong>
+      <span class="muted">書式の異なる複数ファイルも、指標を自動でMECEに整理して1つに統合します（.xlsx / .xls / .csv）</span>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
         <label class="btn" for="file">ファイルを選択</label>
         ${!CLOUD && SAMPLE_AOA && S.source !== 'sample' ? '<button type="button" class="btn ghost" id="reset">サンプルデータに戻す</button>' : ''}
       </div>
-      <input type="file" id="file" accept=".xlsx,.xls,.csv" class="sr-only">
+      <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple class="sr-only">
     </div>
     <p class="muted" style="font-size:12px;margin:10px 0 0">${CLOUD ? 'ファイルはブラウザ内で解析し、表のデータをあなた専用の Firestore に保存します。保存データは許可されたアカウント以外からは読み書きできません。' : 'ファイルはブラウザ内だけで解析され、外部には送信されません。読み込んだデータはこのタブを閉じるまで保持されます。'}</p>
   </section>
@@ -805,13 +1098,15 @@ function renderImport(msg) {
     ${!d ? `<section class="card"><div class="card-head"><h2>現在のデータ</h2></div><p class="muted" style="margin:0">まだデータがありません。チームスタッツの Excel を読み込むと、各ページが表示されます。</p></section>` : `<section class="card"><div class="card-head"><h2>現在のデータ</h2></div>
       <table class="kv"><tbody>
         <tr><td class="l">ソース</td><td>${S.source === 'sample' ? '同梱サンプル' : S.source === 'cloud' ? `${esc(S.fileName)}（クラウドに保存済み）` : esc(S.fileName)}</td></tr>
+        <tr><td class="l">ファイル</td><td>${S.files.length ? `<ol class="files">${S.files.map(f => `<li>${esc(f)}</li>`).join('')}</ol>` : '–'}</td></tr>
         <tr><td class="l">自チーム</td><td>${esc(d.ownTeam)}</td></tr>
         <tr><td class="l">試合数</td><td>${d.matches.length}</td></tr>
         <tr><td class="l">指標列</td><td>${d.metrics.length}（大分類 ${d.catList.length}）</td></tr>
         <tr><td class="l">期間</td><td>${esc(d.matches[0].date)} 〜 ${esc(d.matches[d.matches.length - 1].date)}</td></tr>
       </tbody></table>
-      <h3 style="margin:16px 0 8px">指標の分類</h3>
-      <ul class="spec">${d.catList.map(c => { const g = [...new Set(d.metrics.filter(x => x.cat === c).map(x => x.grp))]; return `<li><b>${esc(c)}</b> <span class="muted">— ${g.map(esc).join('、')}</span></li>`; }).join('')}</ul>
+      <h3 style="margin:16px 0 8px">指標の分類（MECE）</h3>
+      <ul class="spec">${d.catList.map(c => { const ms = d.metrics.filter(x => x.cat === c), g = [...new Set(ms.map(x => x.grp))]; return `<li><b>${esc(c)}</b> <span class="muted">${new Set(ms.map(x => x.met)).size}指標 — ${g.map(esc).join('、')}</span></li>`; }).join('')}</ul>
+      ${CLOUD && S.aoa ? '<button type="button" class="btn ghost" id="dl-mece" style="margin-top:14px">整理済みシートを Excel で保存</button>' : ''}
     </section>`}
     <section class="card"><div class="card-head"><h2>対応フォーマット</h2></div>
       <ol class="spec">
@@ -821,40 +1116,62 @@ function renderImport(msg) {
         <li>内訳の行（例：「合計」「成功」「成功率(%)」）。</li>
         <li>以降、1試合につき「自チーム」「対戦相手」の2行。「平均」で始まる行や空行で終了。</li>
       </ol>
-      ${d && d.notes.length ? `<h3 style="margin:16px 0 8px">ファイル内の注記</h3><ul class="notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <p class="muted small" style="margin:10px 0 0">データ提供元の書き出し形式（1行目が「日付・試合・大会・期間・グループのデータベース・スキーム」と「指標 / 内訳」の見出し）にも対応します。複数ファイルを同時に読み込むと、行は日付・試合・チームで突き合わせ、重複指標の統合、名称の統一、算出列の追加、大分類への振り分けを自動で行います。</p>
+      ${d && d.notes.length ? `<h3 style="margin:16px 0 8px">整理の記録・注記</h3><ul class="notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     </section>
   </div>`;
   const drop = document.getElementById('drop'), input = document.getElementById('file');
-  input.addEventListener('change', () => input.files[0] && readFile(input.files[0]));
+  input.addEventListener('change', () => input.files.length && readFiles([...input.files]));
   ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+  drop.addEventListener('drop', e => e.dataTransfer.files.length && readFiles([...e.dataTransfer.files]));
+  app.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { S.importMode = b.dataset.mode; renderImport(); }));
+  const dl = document.getElementById('dl-mece'); if (dl) dl.addEventListener('click', downloadMece);
   const reset = document.getElementById('reset');
-  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample'); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
+  if (reset) reset.addEventListener('click', () => { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA, ['同梱サンプル']); updateBrand(); renderImport({ type: 'ok', text: 'サンプルデータに戻しました。' }); });
 }
 
-function readFile(file) {
-  const fr = new FileReader();
-  fr.onload = async () => {
-    try {
-      const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: true });
-      let parsed = null, aoa = null, lastErr = null;
+async function readFiles(files) {
+  renderImport({ type: 'ok', text: `${files.length}ファイルを解析しています…` });
+  try {
+    const sources = [], skipped = [];
+    for (const f of files) {
+      const wb = XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: 'array', cellDates: true });
+      let found = false;
       for (const name of wb.SheetNames) {
-        try {
-          aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: true })
-            .map(r => r.map(v => (v instanceof Date ? toISODate(v) : v)));
-          parsed = parseSheet(aoa); break;
-        } catch (e) { lastErr = e; }
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: true })
+          .map(r => r.map(v => (v instanceof Date ? toISODate(v) : v)));
+        const src = sourceFromSheet(aoa, wb.SheetNames.length > 1 ? `${f.name}（${name}）` : f.name);
+        if (src) { sources.push(src); found = true; }
       }
-      if (!parsed) throw lastErr || new Error('読み込めるシートがありません。');
-      if (CLOUD) await saveCloud(aoa, file.name);
-      loadData(parsed, CLOUD ? 'cloud' : 'upload', file.name); updateBrand();
-      toast(`${file.name} から ${parsed.matches.length}試合を読み込みました${CLOUD ? '（クラウドに保存）' : ''}`);
-      location.hash = '#overview'; if (location.hash === '#overview') route();
-    } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
-  };
-  fr.onerror = () => renderImport({ type: 'err', text: 'ファイルを開けませんでした。別のファイルで試してください。' });
-  fr.readAsArrayBuffer(file);
+      if (!found) skipped.push(f.name);
+    }
+    if (!sources.length) throw new Error('「日付」と「チーム（グループのデータベース）」の列を持つシートが見つかりません。');
+    // 追加モード：これまでのデータも 1 つの元データとして扱い、新しいファイルの値を優先して統合する
+    const append = S.importMode === 'append' && S.aoa && S.data;
+    const prevMatches = append ? S.data.matches.length : 0;
+    if (append) sources.push(meceSheetAsSource(S.aoa, 'これまでのデータ'));
+    const fileNames = [...(append ? S.files : []), ...files.map(f => f.name)];
+    // 整理済みシート 1 枚だけを置き換えで読み込む場合はそのまま、それ以外は統合して MECE に整理する
+    const single = !append && sources.length === 1 && sources[0].kind === 'mece';
+    const built = single ? { aoa: sources[0].aoa, summary: null } : buildMece(sources, fileNames);
+    const parsed = parseSheet(built.aoa);
+    const name = fileNames.length === 1 ? fileNames[0] : `${fileNames.length}ファイルを統合`;
+    if (CLOUD) await saveCloud(built.aoa, name, fileNames);
+    loadData(parsed, CLOUD ? 'cloud' : 'upload', name, built.aoa, fileNames); updateBrand();
+    S.viewing = null; S.prev = null; updateBanner();
+    const sm = built.summary, skip = skipped.length ? `（読み込めなかったファイル ${skipped.length}件）` : '';
+    toast(append ? `${files.length}ファイルを追加して統合：${prevMatches}試合 → ${parsed.matches.length}試合、指標${sm.metrics}個${skip}`
+      : sm ? `${sm.files}ファイルを統合：${sm.matches}試合・指標${sm.metrics}個を整理${skip}`
+      : `${files[0].name} から ${parsed.matches.length}試合を読み込みました${CLOUD ? '（クラウドに保存）' : ''}`);
+    location.hash = '#overview'; if (location.hash === '#overview') route();
+  } catch (e) { renderImport({ type: 'err', text: `読み込めませんでした：${e.message}` }); }
+}
+
+function downloadMece() {
+  const ws = XLSX.utils.aoa_to_sheet(S.aoa), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'TeamStats_MECE');
+  XLSX.writeFile(wb, `${S.data.ownTeam}_TeamStats_MECE.xlsx`);
 }
 
 /* ============ Factor analysis: correlation / multiple regression ============ */
@@ -1098,6 +1415,11 @@ function dumbbellSVG(A, t) {
 
 function renderAnalysis() {
   const d = S.data, A = runAnalysis();
+  if (!A.conds.length || !A.ind.length) {
+    const need = [!A.ind.length && '過程指標（パス・リカバリーなど）', !A.conds.length && '得点（ゴール）または xG'].filter(Boolean).join('と');
+    app.innerHTML = `<section class="card"><div class="card-head"><h2>要因分析</h2></div><p class="muted" style="margin:0">読み込んだデータに${need}の列がないため、要因分析を計算できません。該当する指標を含むファイルを、ほかのファイルと一緒に読み込んでください。</p></section>`;
+    return;
+  }
   const teams = [...new Set(d.matches.flatMap(m => [m.own.team, m.opp.team]))];
   const condLabel = c => `${c.tl}｜${c.adj ? 'チーム力補正' : '補正なし'}`;
   S.anaTarget = S.anaTarget && A.ind.length && A.ind[0].raw[S.anaTarget] != null ? S.anaTarget : 'xG';
@@ -1197,6 +1519,212 @@ function renderAnalysis() {
   }
 }
 
+/* ============ Saved analyses (history) and multi-team comparison ============ */
+const LOCAL_KEY = 'matchlens.analyses.v1';
+const CMP_MAX = 6;
+let memStore = null;
+function localList() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]'); }
+  catch (e) { S.storeVolatile = true; return memStore || (memStore = []); }
+}
+function localWrite(list) {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); }
+  catch (e) { S.storeVolatile = true; memStore = list; }
+}
+const anaColl = () => firebase.firestore().collection(`users/${cloudUser.uid}/analyses`);
+// 保存先：Firebase 版は本人専用の Firestore、単体版はこのブラウザ
+const Store = {
+  async list() {
+    if (!CLOUD) return localList();
+    const q = await anaColl().orderBy('createdAt', 'desc').get();
+    return q.docs.map(x => { const v = x.data(); return { id: x.id, ...v, createdAt: v.createdAt && v.createdAt.toDate ? v.createdAt.toDate().toISOString() : new Date().toISOString() }; });
+  },
+  async save(rec) {
+    if (CLOUD) return (await anaColl().add({ ...rec, createdAt: firebase.firestore.FieldValue.serverTimestamp() })).id;
+    const list = localList(), id = Date.now().toString(36);
+    list.unshift({ id, ...rec, createdAt: new Date().toISOString() });
+    localWrite(list);
+    return id;
+  },
+  async remove(id) {
+    if (CLOUD) return anaColl().doc(id).delete();
+    localWrite(localList().filter(r => r.id !== id));
+  },
+};
+
+function recordOf(d) {
+  const ms = d.matches;
+  return { n: ms.length, W: ms.filter(m => m.result === 'W').length, D: ms.filter(m => m.result === 'D').length, L: ms.filter(m => m.result === 'L').length,
+    GF: ms.reduce((s, m) => s + m.gf, 0), GA: ms.reduce((s, m) => s + m.ga, 0), from: ms[0].date, to: ms.at(-1).date };
+}
+// 要因分析の要点（保存時に計算して残す）
+function analysisDigest() {
+  const A = runAnalysis();
+  return { n: A.n, hasStrength: A.hasStrength, strong: [...S.strong], r2: A.gx ? A.gx.r2 : null, conds: A.conds.length,
+    sig: A.sig.map(c => ({ target: c.tl, adj: c.adj, model: c.top[0].names.join(' ＋ '), p: c.pPerm })),
+    keep: A.hasStrength ? A.ind.filter(o => o.partial.xG != null && o.partial.xG >= A.critP).map(o => o.name) : [],
+    conf: A.hasStrength ? A.ind.filter(o => Math.abs(o.rS) >= .8).map(o => o.name) : [] };
+}
+async function saveCurrent(name, memo) {
+  const d = S.data, r = recordOf(d);
+  const rec = { name: name || `${d.ownTeam}（${r.from}〜${r.to}）`, memo: memo || '', ownTeam: d.ownTeam, ...r,
+    files: S.files || [], aoa: JSON.stringify(S.aoa), analysis: analysisDigest() };
+  if (rec.aoa.length > 900000) throw new Error('データが大きすぎて保存できません（上限 約900KB）。');
+  await Store.save(rec);
+  return rec.name;
+}
+const fmtDate = iso => { const t = new Date(iso); return isNaN(t) ? '' : `${t.getFullYear()}/${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`; };
+
+function updateBanner() {
+  const b = document.getElementById('banner');
+  b.hidden = !S.viewing;
+  if (!S.viewing) return;
+  b.innerHTML = `<span>過去分析「${esc(S.viewing)}」を表示しています。</span><button type="button" class="btn ghost" id="back-current">${S.prev && S.prev.data ? '現在のデータに戻る' : '表示を閉じる'}</button>`;
+  document.getElementById('back-current').addEventListener('click', backToCurrent);
+}
+function openSaved(rec) {
+  if (!S.viewing) S.prev = { data: S.data, aoa: S.aoa, source: S.source, fileName: S.fileName, files: S.files, strong: S.strong };
+  const aoa = JSON.parse(rec.aoa);
+  loadData(parseSheet(aoa), 'history', rec.name, aoa, rec.files);
+  if (rec.analysis && rec.analysis.strong) S.strong = new Set(rec.analysis.strong);
+  S.viewing = rec.name; updateBrand(); updateBanner();
+  toast(`「${rec.name}」を開きました`);
+  location.hash = '#overview'; if (location.hash === '#overview') route();
+}
+function backToCurrent() {
+  const p = S.prev || {};
+  if (p.data) { loadData(p.data, p.source, p.fileName, p.aoa, p.files); S.strong = p.strong; }
+  else { S.data = null; S.aoa = null; S.ana = null; }
+  S.viewing = null; S.prev = null; updateBrand(); updateBanner(); route();
+}
+
+async function renderHistory(msg) {
+  const d = S.data, r = d ? recordOf(d) : null;
+  const where = CLOUD ? 'あなた専用の Firestore に保存します（許可されたアカウント以外は読めません）。' : S.storeVolatile ? 'この環境ではブラウザに保存できないため、タブを閉じると消えます。' : 'このブラウザに保存します（他の端末やブラウザには共有されません）。';
+  app.innerHTML = `
+  <section class="card"><div class="card-head"><h2>現在の分析を保存</h2><p>${where}</p></div>
+    ${msg ? `<div class="msg ${msg.type}" role="status" style="margin-bottom:14px">${esc(msg.text)}</div>` : ''}
+    ${d ? `<form id="save-form" class="save-form">
+      <div class="field"><label for="save-name">名前</label><input id="save-name" type="text" maxlength="80" placeholder="${esc(`${d.ownTeam}（${r.from}〜${r.to}）`)}"></div>
+      <div class="field"><label for="save-memo">メモ（任意）</label><input id="save-memo" type="text" maxlength="200" placeholder="例：ACL 3試合を追加した版"></div>
+      <button type="submit" class="btn" id="save-btn">保存</button></form>
+      <p class="muted small" style="margin:10px 0 0">保存する内容：${esc(d.ownTeam)}・${r.n}試合（${r.from}〜${r.to}）・${r.W}勝${r.D}分${r.L}敗、統合したデータ一式、要因分析の要点（チーム力区分：${S.strong.size ? [...S.strong].map(esc).join('、') : 'なし'}）。</p>`
+    : '<p class="muted" style="margin:0">保存できるデータがありません。データ取込で Excel を読み込んでください。</p>'}
+  </section>
+  <section class="card"><div class="card-head"><h2>保存した分析</h2><p>開くと全タブがそのデータで再計算されます</p></div><div id="hist-list"><p class="muted">読み込んでいます…</p></div></section>`;
+  const form = document.getElementById('save-form');
+  if (form) form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('save-btn'); btn.disabled = true; btn.textContent = '保存しています…';
+    try { const nm = await saveCurrent(document.getElementById('save-name').value.trim(), document.getElementById('save-memo').value.trim()); renderHistory({ type: 'ok', text: `「${nm}」を保存しました。` }); }
+    catch (err) { renderHistory({ type: 'err', text: `保存できませんでした：${err.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : err.message}` }); }
+  });
+  let list;
+  try { list = await Store.list(); } catch (err) { document.getElementById('hist-list').innerHTML = `<div class="msg err">一覧を読み込めませんでした（${esc(err.code || err.message)}）。</div>`; return; }
+  S.histCache = list;
+  S.cmpSel = new Set([...(S.cmpSel || [])].filter(id => id === 'current' || list.some(x => x.id === id)));
+  const box = document.getElementById('hist-list');
+  if (!box) return;
+  if (!list.length) { box.innerHTML = '<p class="muted" style="margin:0">まだ保存した分析はありません。上のフォームから現在の分析を保存できます。</p>'; return; }
+  box.innerHTML = `<div class="hist-actions"><span class="muted small">比較に選択中：${S.cmpSel.size}件（最大${CMP_MAX}件）</span><a class="btn ghost" href="#compare">選んだ分析を比較する</a></div>
+    <ul class="hist-list">${list.map(x => `<li class="hist-item">
+      <div class="hist-main"><div class="hist-name">${esc(x.name)}</div>
+        <div class="hist-meta">${esc(x.ownTeam)} · ${x.n}試合（${esc(x.from)}〜${esc(x.to)}） · <b>${x.W}勝${x.D}分${x.L}敗</b> · 得点${x.GF} 失点${x.GA}</div>
+        <div class="hist-meta muted">保存 ${fmtDate(x.createdAt)}${x.files && x.files.length ? ` · ファイル${x.files.length}件` : ''}${x.memo ? ` · ${esc(x.memo)}` : ''}</div></div>
+      <div class="hist-btns">
+        <button type="button" class="btn ghost" data-open="${esc(x.id)}">開く</button>
+        <button type="button" class="btn ghost tsel" data-cmp="${esc(x.id)}" aria-pressed="${S.cmpSel.has(x.id)}">比較に${S.cmpSel.has(x.id) ? '選択中' : '追加'}</button>
+        <button type="button" class="btn ghost danger" data-del="${esc(x.id)}">削除</button></div></li>`).join('')}</ul>`;
+  box.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openSaved(list.find(x => x.id === b.dataset.open))));
+  box.querySelectorAll('[data-cmp]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.cmp;
+    if (S.cmpSel.has(id)) S.cmpSel.delete(id); else if (S.cmpSel.size < CMP_MAX) S.cmpSel.add(id); else return toast(`比較できるのは最大${CMP_MAX}件です`);
+    renderHistory();
+  }));
+  box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'もう一度押すと削除'; setTimeout(() => { if (b.isConnected) { b.dataset.armed = ''; b.textContent = '削除'; } }, 4000); return; }
+    try { await Store.remove(b.dataset.del); S.cmpSel.delete(b.dataset.del); renderHistory({ type: 'ok', text: '削除しました。' }); }
+    catch (err) { renderHistory({ type: 'err', text: `削除できませんでした（${err.code || err.message}）。` }); }
+  }));
+}
+
+// 比較する指標（1 試合あたり平均。pol: 1 = 高いほど良い, -1 = 低いほど良い, 0 = スタイル指標）
+const CMP_METRICS = [
+  ['得点', (s, o) => get(s, 'ゴール'), 1], ['失点', (s, o) => get(o, 'ゴール'), -1], ['xG', (s, o) => get(s, 'xG'), 1], ['被xG', (s, o) => get(o, 'xG'), -1],
+  ['xG差', (s, o) => get(s, 'xG差'), 1], ['シュート', (s, o) => get(s, 'シュート', '合計'), 1], ['被シュート', (s, o) => get(o, 'シュート', '合計'), -1],
+  ['決定率(%)', (s, o) => get(s, '決定率(%)'), 1], ['シュート1本あたりxG', (s, o) => get(s, 'シュート1本あたりxG'), 1],
+  ['ボール保持率(%)', (s, o) => get(s, 'ボール保持率(%)'), 0], ['パス成功率(%)', (s, o) => get(s, 'パス', '成功率(%)'), 1],
+  ['1/3へのパス成功', (s, o) => get(s, '1/3へのパス', '成功'), 1], ['リカバリー（高）', (s, o) => get(s, 'リカバリー（ゾーン別）', '高'), 1],
+  ['リカバリー（高）比率(%)', (s, o) => get(s, 'リカバリー（高）比率(%)'), 1], ['ボールロス', (s, o) => get(s, 'ボールロス（ゾーン別）', '合計'), -1],
+  ['競り合い勝率(%)', (s, o) => get(s, '競り合い（全体）', '勝率(%)'), 1], ['空中戦の割合(%)', (s, o) => get(s, '空中戦の割合(%)'), 0],
+  ['セットプレー起点シュート比率(%)', (s, o) => get(s, 'セットプレー起点シュート比率(%)'), 0], ['ファウル', (s, o) => get(s, 'ファウル'), -1],
+];
+const polLabel = p => (p > 0 ? '高いほど良い' : p < 0 ? '低いほど良い' : 'スタイル指標');
+const cmpFmt = (v, name) => (v == null ? '–' : /%/.test(name) ? v.toFixed(1) + '%' : /xG/.test(name) ? v.toFixed(2) : v.toFixed(1));
+
+async function renderCompare() {
+  app.innerHTML = '<section class="card"><p class="muted" style="margin:0">読み込んでいます…</p></section>';
+  let list = S.histCache;
+  try { list = await Store.list(); S.histCache = list; } catch (err) { if (!list) { app.innerHTML = `<div class="msg err">保存した分析を読み込めませんでした（${esc(err.code || err.message)}）。</div>`; return; } }
+  S.cmpSel = S.cmpSel || new Set();
+  const opts = [...(S.data ? [{ id: 'current', name: `現在のデータ（${S.data.ownTeam}）`, ownTeam: S.data.ownTeam }] : []), ...list];
+  const sel = opts.filter(x => S.cmpSel.has(x.id));
+  const chips = opts.map(x => { const i = sel.indexOf(x); return `<button type="button" class="tchip cmp" data-id="${esc(x.id)}" aria-pressed="${i >= 0}" ${i < 0 && sel.length >= CMP_MAX ? 'disabled' : ''}>${i >= 0 ? `<i class="sw" style="background:var(--c${i + 1})"></i>` : ''}${esc(x.name)}</button>`; }).join('');
+  const head = `<section class="hero" style="grid-template-columns:1fr"><div><div class="eyebrow">チーム比較</div><h1>分析結果の比較</h1>
+      <div class="meta">保存した分析（と現在のデータ）から2〜${CMP_MAX}件を選んでください。値は1試合あたりの平均です。対戦相手の水準が違う場合は単純比較に注意が必要です。</div></div></section>
+    <section class="card"><div class="card-head"><h2>比較する分析</h2><p>${sel.length}件を選択中</p></div>
+      ${opts.length ? `<div class="team-chips">${chips}</div>` : '<p class="muted" style="margin:0">比較できる分析がありません。「過去分析」タブで分析を保存してください。</p>'}</section>`;
+  if (sel.length < 2) { app.innerHTML = head + (opts.length ? '<section class="card"><p class="muted" style="margin:0">2件以上選ぶと比較を表示します。</p></section>' : ''); bindCmpChips(); return; }
+  // 各分析のデータを集計
+  const ents = sel.map((x, i) => {
+    const d = x.id === 'current' ? S.data : parseSheet(JSON.parse(x.aoa));
+    const vals = CMP_METRICS.map(([name, fn]) => mean(d.matches.map(m => fn(m.own, m.opp))));
+    return { ...x, d, rec: recordOf(d), vals, color: `--c${i + 1}`, analysis: x.id === 'current' ? analysisDigest() : x.analysis };
+  });
+  const rows = CMP_METRICS.map(([name, , pol], k) => ({ name, pol, vals: ents.map(e => e.vals.at(k)) })).filter(r => r.vals.filter(v => v != null).length >= 2);
+  // 最良の値（同値はすべて、全件同値なら判定なし）
+  const bestSet = r => {
+    if (!r.pol) return new Set();
+    const v = r.vals.map(x => (x == null ? null : Math.round(x * r.pol * 1e6) / 1e6)), ok = v.filter(x => x != null), m = Math.max(...ok);
+    return ok.every(x => x === m) ? new Set() : new Set(v.map((x, i) => (x === m ? i : -1)).filter(i => i >= 0));
+  };
+  // 同じチームの分析が複数あるときは分析名で区別する
+  const short = (t, n = 14) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+  const tag = e => '①②③④⑤⑥'.at(ents.indexOf(e));
+  const lab = e => (ents.filter(x => x.d.ownTeam === e.d.ownTeam).length > 1 ? `${tag(e)} ${short(e.d.ownTeam, 11)}` : short(e.d.ownTeam));
+  app.innerHTML = head + `
+  <section class="card"><div class="card-head"><h2>成績</h2></div><div class="tbl-wrap"><table><thead><tr><th class="l">分析</th><th class="l">チーム</th><th>試合</th><th>勝-分-敗</th><th>勝点/試合</th><th>得点</th><th>失点</th><th class="l">期間</th></tr></thead><tbody>
+    ${ents.map(e => `<tr><td class="l"><i class="sw" style="background:var(${e.color})"></i>${tag(e)} ${esc(e.name)}</td><td class="l">${esc(e.d.ownTeam)}</td><td>${e.rec.n}</td><td>${e.rec.W}-${e.rec.D}-${e.rec.L}</td><td>${((e.rec.W * 3 + e.rec.D) / e.rec.n).toFixed(2)}</td><td>${e.rec.GF}</td><td>${e.rec.GA}</td><td class="l">${esc(e.rec.from)}〜${esc(e.rec.to)}</td></tr>`).join('')}
+  </tbody></table></div></section>
+  <section><div class="card-head" style="margin-bottom:10px"><h2>指標ごとの比較（1試合平均）</h2><p>${ents.map(e => `<span class="lg"><i class="sw" style="background:var(${e.color})"></i>${tag(e)} ${esc(e.name)}</span>`).join('')}</p></div>
+    <div class="grid-3">${rows.map((r, k) => `<div class="card"><div class="mini-title"><h3>${esc(r.name)}</h3><span>${polLabel(r.pol)}</span></div><div class="chart-box" style="height:${44 + ents.length * 30}px"><canvas id="cmp-${k}" role="img" aria-label="${esc(r.name)}の比較"></canvas></div></div>`).join('')}</div></section>
+  <section class="card"><div class="card-head"><h2>比較表</h2><p>▲＝最も良い値（スタイル指標は判定なし）</p></div><div class="tbl-wrap"><table><thead><tr><th class="l">指標</th>${ents.map(e => `<th><i class="sw" style="background:var(${e.color})"></i>${esc(lab(e))}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(r => { const b = bestSet(r); return `<tr><td class="l">${esc(r.name)} <span class="muted small">${polLabel(r.pol)}</span></td>${r.vals.map((v, i) => `<td${b.has(i) ? ' class="best"' : ''}>${cmpFmt(v, r.name)}${b.has(i) ? ' ▲' : ''}</td>`).join('')}</tr>`; }).join('')}
+  </tbody></table></div></section>
+  <section class="card"><div class="card-head"><h2>要因分析の比較</h2><p>保存時に計算した要点</p></div><div class="tbl-wrap"><table class="kv-wide"><thead><tr><th class="l">項目</th>${ents.map(e => `<th class="l"><i class="sw" style="background:var(${e.color})"></i>${esc(lab(e))}</th>`).join('')}</tr></thead><tbody>
+    ${[['分析した行数', a => `${a.n}行`], ['得点をxGで説明できる割合', a => (a.r2 == null ? '–' : `${Math.round(a.r2 * 100)}%`)],
+      ['偶然と区別できたモデル', a => (a.sig.length ? a.sig.map(s => `${esc(s.target)}${s.adj ? '（補正）' : ''} ~ ${esc(s.model)}（p = ${s.p.toFixed(3)}）`).join('<br>') : `なし（${a.conds}条件中）`)],
+      ['チーム力補正後もxGと関係が残る指標', a => (a.hasStrength ? (a.keep.length ? a.keep.map(esc).join('、') : 'なし') : 'チーム力未設定')],
+      ['チーム力とほぼ同じ動きをする指標', a => (a.hasStrength ? (a.conf.length ? a.conf.map(esc).join('、') : 'なし') : 'チーム力未設定')],
+      ['チーム力の上位グループ', a => (a.strong.length ? a.strong.map(esc).join('、') : 'なし')]]
+      .map(([lbl, f]) => `<tr><td class="l">${lbl}</td>${ents.map(e => `<td class="l small">${e.analysis ? f(e.analysis) : '–'}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div></section>`;
+  bindCmpChips();
+  rows.forEach((r, k) => {
+    const b = bestSet(r);
+    mk(document.getElementById(`cmp-${k}`), { type: 'bar', data: { labels: ents.map(lab), datasets: [{ label: r.name, data: r.vals, backgroundColor: ents.map(e => T(e.color.slice(2))), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: c => ents.at(c[0].dataIndex).name, label: c => ` ${cmpFmt(c.raw, r.name)}${b.has(c.dataIndex) ? '（最良）' : ''}` } } },
+        scales: { x: { beginAtZero: true, grid: { color: T('grid') }, border: { display: false }, ticks: { maxTicksLimit: 5 } }, y: { grid: { display: false }, ticks: { font: { size: 11 } } } } } });
+  });
+}
+function bindCmpChips() {
+  app.querySelectorAll('.tchip.cmp').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.id;
+    if (S.cmpSel.has(id)) S.cmpSel.delete(id); else if (S.cmpSel.size < CMP_MAX) S.cmpSel.add(id);
+    renderCompare();
+  }));
+}
+
 /* ============ Router ============ */
 let toastTimer;
 function toast(t) { const el = document.getElementById('toast'); el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200); }
@@ -1207,12 +1735,12 @@ function route() {
   let page = 'overview', no = 1;
   const mm = h.match(/^match-(\d+)$/);
   if (mm) { page = 'match'; no = Math.min(Math.max(1, +mm[1]), S.data ? S.data.matches.length : 1); }
-  else if (h === 'trends' || h === 'import' || h === 'analysis') page = h;
-  if (!S.data) page = 'import';
+  else if (['trends', 'import', 'analysis', 'history', 'compare'].includes(h)) page = h;
+  if (!S.data && !['history', 'compare'].includes(page)) page = 'import';
   document.querySelector('.tabs').hidden = false;
   document.querySelectorAll('.tabs a').forEach(a => { if (a.dataset.route === page) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (page === 'match') document.querySelector('.tabs a[data-route="match"]').setAttribute('href', '#match-' + no);
-  ({ overview: renderOverview, match: () => renderMatch(no), trends: renderTrends, analysis: renderAnalysis, import: () => renderImport() })[page]();
+  ({ overview: renderOverview, match: () => renderMatch(no), trends: renderTrends, analysis: renderAnalysis, history: () => renderHistory(), compare: renderCompare, import: () => renderImport() })[page]();
 }
 function rerenderForTheme() { rerenderSafe(); }
 
@@ -1220,11 +1748,11 @@ function rerenderForTheme() { rerenderSafe(); }
 const CLOUD = typeof window.firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
 let cloudUser = null;
 const dataDoc = () => firebase.firestore().doc(`users/${cloudUser.uid}/datasets/current`);
-async function saveCloud(aoa, fileName) {
+async function saveCloud(aoa, fileName, files) {
   const json = JSON.stringify(aoa);
   if (json.length > 900000) throw new Error('ファイルが大きすぎて保存できません（上限 約900KB）。不要なシートや行を削除してください。');
   try {
-    await dataDoc().set({ aoa: json, fileName, uploadedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await dataDoc().set({ aoa: json, fileName, files: files || [fileName], uploadedAt: firebase.firestore.FieldValue.serverTimestamp() });
   } catch (e) {
     throw new Error(e.code === 'permission-denied' ? 'このアカウントには保存する権限がありません。' : `クラウドに保存できませんでした（${e.code || e.message}）。`);
   }
@@ -1259,21 +1787,21 @@ function startUI() {
 }
 function rerenderSafe() { if (!CLOUD || (cloudUser && S.access)) route(); }
 if (!CLOUD) {
-  try { loadData(parseSheet(SAMPLE_AOA), 'sample'); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  try { loadData(parseSheet(SAMPLE_AOA), 'sample', '', SAMPLE_AOA, ['同梱サンプル']); } catch (e) { app.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
   if (S.data) { updateBrand(); startUI(); route(); if (document.fonts) document.fonts.ready.then(route); }
 } else {
   startUI();
   renderGate('loading');
   document.getElementById('signout').addEventListener('click', () => firebase.auth().signOut());
   firebase.auth().onAuthStateChanged(async user => {
-    cloudUser = user; S.access = false; S.data = null; S.ana = null; updateBrand();
+    cloudUser = user; S.access = false; S.data = null; S.ana = null; S.viewing = null; S.prev = null; S.histCache = null; S.cmpSel = new Set(); updateBrand(); updateBanner();
     const acct = document.getElementById('account');
     acct.hidden = !user; document.getElementById('acct-email').textContent = user ? user.email || '' : '';
     if (!user) return renderGate('signin');
     try {
       const snap = await dataDoc().get();
       S.access = true;
-      if (snap.exists) { const v = snap.data(); loadData(parseSheet(JSON.parse(v.aoa)), 'cloud', v.fileName); updateBrand(); }
+      if (snap.exists) { const v = snap.data(), aoa = JSON.parse(v.aoa); loadData(parseSheet(aoa), 'cloud', v.fileName, aoa, v.files || [v.fileName]); updateBrand(); }
       route();
       if (document.fonts) document.fonts.ready.then(rerenderSafe);
     } catch (e) {
