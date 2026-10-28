@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).parent
 FIREBASE_SDK = '10.12.2'
 FIREBASE_HEAD = '\n'.join(
     [f'<script src="https://www.gstatic.com/firebasejs/{FIREBASE_SDK}/firebase-{m}-compat.js"></script>' for m in ('app', 'auth', 'firestore')]
-    + ['<script src="/__/firebase/init.js"></script>'])   # Firebase Hosting が配信するプロジェクト設定
+    + ['<script>window.MATCHLENS_CLOUD = true;</script>'])   # 設定は起動時に /__/firebase/init.json から読む
 
 
 def template():

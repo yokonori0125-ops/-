@@ -21,9 +21,9 @@ GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestor
 | タブ | 内容 |
 | --- | --- |
 | シーズン概要 | 成績、平均指標、算出KPI、自動分析サマリー、得点・失点と xG |
-| 試合別 | スコアボード、主要スタッツ対比、円グラフ・棒グラフ、全指標表 |
+| 試合別 | 試合一覧（時系列・古い順／新しい順、xG・保持率・シュート付き）、スコアボード、主要スタッツ対比、円グラフ・棒グラフ、全指標表 |
 | 推移比較 | 任意の指標の時系列、主要指標の推移、試合別の優劣マトリクス |
-| 要因分析 | 相関・偏相関、説明変数 1〜2 個の重回帰の全探索、交差検証、並べ替え検定 |
+| 要因分析 | 相関・偏相関、説明変数 1〜2 個の重回帰の全探索、交差検証、並べ替え検定、深掘りインサイト（好調・不調の差、モデルで説明できない試合、1試合抜きの係数安定性、境目、相手の水準別、前半と後半、失点の偏り）、生成AI向けデータの書き出し |
 | 過去分析 | 現在の分析を名前・メモ付きで保存し、一覧から開く・削除する |
 | チーム比較 | 保存した分析（と現在のデータ）を最大 6 件並べ、指標・成績・要因分析の結果を比較 |
 | データ取込 | 複数ファイルの読み込み、追加読み込み、自動 MECE 整理、データシートに反映する試合の選択（大会別・直近 N 試合の一括選択） |
@@ -41,6 +41,7 @@ GitHub でコードを管理し、Firebase（Hosting・Authentication・Firestor
 3. **Firestore Database** → データベースを作成（本番環境モード）。
 4. **Hosting** → 「始める」でホスティングを有効にする（CLI の手順はスキップしてよい）。
 5. **プロジェクトの設定** → マイアプリ → **ウェブアプリを追加**（Hosting の `/__/firebase/init.js` がこの設定を配信する）。
+5-1. [Google Cloud コンソールの認証情報](https://console.cloud.google.com/apis/credentials) で「Web client (auto created by Google Service)」を開き、**承認済みのリダイレクト URI** に `https://<プロジェクトID>.web.app/__/auth/handler` を追加する。アプリはログイン処理を開いているドメイン上で行う（スマホのブラウザが別ドメインのストレージを遮断し、ログインが「missing initial state」で失敗するのを防ぐため）ので、そのドメインのハンドラ URI が必要です。独自ドメインを使う場合はそのドメインの URI も追加します。
 6. [Google Cloud コンソールの IAM](https://console.cloud.google.com/iam-admin/serviceaccounts) でデプロイ用のサービスアカウントを作り、ロール **Firebase 管理者**（`roles/firebase.admin`）を付けて、JSON キーを発行する。
 7. GitHub のリポジトリ → Settings → Secrets and variables → Actions に、次の 3 つを登録する。
 
