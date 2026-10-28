@@ -24,6 +24,8 @@ const cases = [
   ['本人は保存した分析の一覧を読める', () => owner.collection('users/uid-owner/analyses').get(), true],
   ['他のアカウントは保存した分析を読めない', () => other.collection('users/uid-owner/analyses').get(), false],
   ['他のアカウントは保存した分析を削除できない', () => other.doc('users/uid-owner/analyses/a1').delete(), false],
+  ['本人は表示設定を保存できる', () => owner.doc('users/uid-owner/settings/display').set({ bg: '#ffffff', pattern: 'dots' }), true],
+  ['他のアカウントは表示設定を読めない', () => other.doc('users/uid-owner/settings/display').get(), false],
   ['本人でも他の uid の領域には書けない', () => owner.doc('users/uid-other/datasets/current').set({ aoa: '[]' }), false],
   ['本人でも決められた場所以外には書けない', () => owner.doc('public/x').set({ a: 1 }), false],
 ];
